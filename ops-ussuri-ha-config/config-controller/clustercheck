@@ -1,0 +1,4 @@
+MYSQL_USERNAME="clustercheck"
+MYSQL_PASSWORD="password"
+MYSQL_HOST="localhost"
+MYSQL_PORT="3306"

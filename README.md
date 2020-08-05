@@ -4,6 +4,7 @@ HA 3 node controller with 1 node compute and 1 node haproxy
 
 reference source;
 
+	https://docs.openstack.org/install-guide/
 	https://www.server-world.info/en/note?os=CentOS_8&p=openstack_ussuri&f=2
 	https://www.golinuxcloud.com/configure-openstack-high-availability-pacemaker/
 	https://www.golinuxcloud.com/configure-haproxy-in-openstack-high-availability/
@@ -847,121 +848,129 @@ using nfs backend
 install and config cinder-api and backend storage nfs
 
 
-# dnf --enablerepo=centos-openstack-ussuri,PowerTools,epel -y install openstack-cinder 
+	# dnf --enablerepo=centos-openstack-ussuri,PowerTools,epel -y install openstack-cinder 
 
-# dnf --enablerepo=centos-openstack-ussuri -y install openstack-selinux  
+	# dnf --enablerepo=centos-openstack-ussuri -y install openstack-selinux  
 
-# setsebool -P virt_use_nfs on
+	# setsebool -P virt_use_nfs on
 
-jika firewall hidup
-# firewall-cmd --add-port=8776/tcp --permanent
-# firewall-cmd --reload
+if firewall on
+
+	# firewall-cmd --add-port=8776/tcp --permanent
+	# firewall-cmd --reload
 
 
 create database cinder:
 
 
-# mysql -u root -p
-MariaDB [(none)]> create database cinder; 
-MariaDB [(none)]> grant all privileges on cinder.* to cinder@'localhost' identified by 'password';
-MariaDB [(none)]> grant all privileges on cinder.* to cinder@'%' identified by 'password'; 
-MariaDB [(none)]> flush privileges; 
-MariaDB [(none)]> exit 
+	# mysql -u root -p
+	MariaDB [(none)]> create database cinder; 
+	MariaDB [(none)]> grant all privileges on cinder.* to cinder@'localhost' identified by 'password';
+	MariaDB [(none)]> grant all privileges on cinder.* to cinder@'%' identified by 'password'; 
+	MariaDB [(none)]> flush privileges; 
+	MariaDB [(none)]> exit 
 
 
 create [cinder] user in [service] project;
-# openstack user create --domain default --project service --password servicepassword cinder
+
+	# openstack user create --domain default --project service --password servicepassword cinder
 
 add [cinder] user in [admin] role;
 openstack role add --project service --user cinder admin 
 
 create service entry for [cinder];
-openstack service create --name cinderv3 --description "OpenStack Block Storage" volumev3 
+
+	openstack service create --name cinderv3 --description "OpenStack Block Storage" volumev3 
 
 define Cinder API Node;
 create endpoint for [cinder] (public);
-# openstack endpoint create --region RegionOne volumev3 public http://10.19.33.14:8776/v3/%\(tenant_id\)s
+
+	# openstack endpoint create --region RegionOne volumev3 public http://10.19.33.14:8776/v3/%\(tenant_id\)s
 
 create endpoint for [cinder] (internal);
-# openstack endpoint create --region RegionOne volumev3 internal http://10.19.33.14:8776/v3/%\(tenant_id\)s 
+
+	# openstack endpoint create --region RegionOne volumev3 internal http://10.19.33.14:8776/v3/%\(tenant_id\)s 
 
 create endpoint for [cinder] (admin)
-# openstack endpoint create --region RegionOne volumev3 admin http://10.19.33.14:8776/v3/%\(tenant_id\)s
+
+	# openstack endpoint create --region RegionOne volumev3 admin http://10.19.33.14:8776/v3/%\(tenant_id\)s
 
 configutre cinder.conf;
-# vim /etc/cinder/cinder.conf 
+
+	# vim /etc/cinder/cinder.conf 
 
 
-[DEFAULT]
-my_ip = 10.19.3.14
-log_dir = /var/log/cinder
-state_path = /var/lib/cinder
-auth_strategy = keystone
-transport_url = rabbit://openstack:password@10.19.33.15
-glance_api_servers = http://10.19.33.14:9292
-enable_v3_api = True
-#enable_v2_api = False
-enabled_backends = nfs 
+	[DEFAULT]
+	my_ip = 10.19.3.14
+	log_dir = /var/log/cinder
+	state_path = /var/lib/cinder
+	auth_strategy = keystone
+	transport_url = rabbit://openstack:password@10.19.33.15
+	glance_api_servers = http://10.19.33.14:9292
+	enable_v3_api = True
+	#enable_v2_api = False
+	enabled_backends = nfs 
 
 
-# config cinder-backup (optional)
-backup_driver = cinder.backup.drivers.nfs.NFSBackupDriver
-backup_mount_point_base = $state_path/backup_nfs
-backup_share = 10.19.33.22:/backend/cinder-backup
+	# config cinder-backup (optional)
+	backup_driver = cinder.backup.drivers.nfs.NFSBackupDriver
+	backup_mount_point_base = $state_path/backup_nfs
+	backup_share = 10.19.33.22:/backend/cinder-backup
 
-[database]
-connection = mysql+pymysql://cinder:password@10.19.33.15/cinder
-#max_retries = -1
+	[database]
+	connection = mysql+pymysql://cinder:password@10.19.33.15/cinder
+	#max_retries = -1
 
-[keystone_authtoken]
-www_authenticate_uri = http://10.19.33.14:5000
-auth_url = http://10.19.33.14:5000
-memcached_servers = "10.19.33.11:11211,10.19.33.12:11211,10.19.33.13:112211"
-auth_type = password
-project_domain_name = default
-user_domain_name = default
-project_name = service
-username = cinder
-password = servicepassword
+	[keystone_authtoken]
+	www_authenticate_uri = http://10.19.33.14:5000
+	auth_url = http://10.19.33.14:5000
+	memcached_servers = "10.19.33.11:11211,10.19.33.12:11211,10.19.33.13:112211"
+	auth_type = password
+	project_domain_name = default
+	user_domain_name = default
+	project_name = service
+	username = cinder
+	password = servicepassword
 
-[oslo_messaging_rabbit]
-rabbit_ha_queues = true
+	[oslo_messaging_rabbit]
+	rabbit_ha_queues = true
 
-[oslo_concurrency]
-lock_path = $state_path/tmp
+	[oslo_concurrency]
+	lock_path = $state_path/tmp
 
-# line to the end 
-[nfs]
-volume_driver = cinder.volume.drivers.nfs.NfsDriver
-nfs_shares_config = /etc/cinder/nfs_shares
-nfs_mount_point_base = $state_path/mnt
-~
-~
-:wq
+	# line to the end 
+	[nfs]
+	volume_driver = cinder.volume.drivers.nfs.NfsDriver
+	nfs_shares_config = /etc/cinder/nfs_shares
+	nfs_mount_point_base = $state_path/mnt
+	~
+	~
+	:wq
 
 create new : specify NFS shared directory;
-# vi /etc/cinder/nfs_shares
-10.19.33.22:/backend/cinder
-~
 
-:wq
+	# vi /etc/cinder/nfs_shares
+	10.19.33.22:/backend/cinder
+	~
+
+	:wq
 ---
 
-# su -s /bin/bash cinder -c "cinder-manage db sync" 
+	# su -s /bin/bash cinder -c "cinder-manage db sync" 
 
 running service cinder-api, cinder-schaduler & cinder-volume
 
-# pcs resource create cinder-api systemd:openstack-cinder-api clone interleave=true
-# pcs resource create cinder-scheduler systemd:openstack-cinder-scheduler clone interleave=true
-# pcs resource create cinder-volume systemd:openstack-cinder-volume clone interleave=true
-# pcs resource create cinder-backup systemd:openstack-cinder-backup clone interleave=true
+	# pcs resource create cinder-api systemd:openstack-cinder-api clone interleave=true
+	# pcs resource create cinder-scheduler systemd:openstack-cinder-scheduler clone interleave=true
+	# pcs resource create cinder-volume systemd:openstack-cinder-volume clone interleave=true
+	# pcs resource create cinder-backup systemd:openstack-cinder-backup clone interleave=true
 
-# pcs constraint order start cinder-api-clone then cinder-scheduler-clone
-# pcs constraint colocation add cinder-scheduler-clone with cinder-api-clone
-# pcs constraint order start cinder-scheduler-clone then cinder-volume-clone
-# pcs constraint colocation add cinder-volume with cinder-scheduler-clone
-# pcs constraint order start cinder-scheduler-clone then cinder-backup-clone
-# pcs constraint colocation add cinder-backup-clone with cinder-scheduler-clone
+	# pcs constraint order start cinder-api-clone then cinder-scheduler-clone
+	# pcs constraint colocation add cinder-scheduler-clone with cinder-api-clone
+	# pcs constraint order start cinder-scheduler-clone then cinder-volume-clone
+	# pcs constraint colocation add cinder-volume with cinder-scheduler-clone
+	# pcs constraint order start cinder-scheduler-clone then cinder-backup-clone
+	# pcs constraint colocation add cinder-backup-clone with cinder-scheduler-clone
 
 
 
@@ -970,803 +979,836 @@ running service cinder-api, cinder-schaduler & cinder-volume
 install & configure NOVA compute;
 
 
-# dnf --enablerepo=centos-openstack-ussuri,PowerTools,epel -y install openstack-nova openstack-placement-api
+	# dnf --enablerepo=centos-openstack-ussuri,PowerTools,epel -y install openstack-nova openstack-placement-api
 
-# dnf --enablerepo=centos-openstack-ussuri -y install openstack-selinux 
+	# dnf --enablerepo=centos-openstack-ussuri -y install openstack-selinux 
 
 
-JIka firewall hidup;
+if firewalld on;
 
-# firewall-cmd --add-port={6080/tcp,6081/tcp,6082/tcp,8774/tcp,8775/tcp,8778/tcp} --permanent
+	# firewall-cmd --add-port={6080/tcp,6081/tcp,6082/tcp,8774/tcp,8775/tcp,8778/tcp} --permanent
 
-# firewall-cmd --reload
+	# firewall-cmd --reload
 
-# semanage port -a -t http_port_t -p tcp 8778 
+	# semanage port -a -t http_port_t -p tcp 8778 
  
 
 create [nova] user in [service] project;
-# openstack user create --domain default --project service --password servicepassword nova
+
+	# openstack user create --domain default --project service --password servicepassword nova
 
 add [nova] user in [admin];
-# openstack role add --project service --user nova admin 
+
+	# openstack role add --project service --user nova admin 
 
 create [placement] user in [service] project
-# openstack user create --domain default --project service --password servicepassword placement
+
+	# openstack user create --domain default --project service --password servicepassword placement
 
 add [placement] user in [admin] role
-# openstack role add --project service --user placement admin 
+
+	# openstack role add --project service --user placement admin 
 
 create service entry for [nova];
-# openstack service create --name nova --description "OpenStack Compute service" compute 
+
+	# openstack service create --name nova --description "OpenStack Compute service" compute 
 
 create service entry for [placement]
-# openstack service create --name placement --description "OpenStack Compute Placement service" placement 
 
-define Nova Host
+	# openstack service create --name placement --description "OpenStack Compute Placement service" placement 
+
+define Nova Host;
 create endpoint for [nova] (public);
-# openstack endpoint create --region RegionOne compute public http://10.19.33.14:8774/v2.1/%\(tenant_id\)s 
+
+	# openstack endpoint create --region RegionOne compute public http://10.19.33.14:8774/v2.1/%\(tenant_id\)s 
 
 create endpoint for [nova] (internal);
-# openstack endpoint create --region RegionOne compute internal http://10.19.33.14:8774/v2.1/%\(tenant_id\)s
+
+	# openstack endpoint create --region RegionOne compute internal http://10.19.33.14:8774/v2.1/%\(tenant_id\)s
 
 create endpoint for [nova] (admin);
-# openstack endpoint create --region RegionOne compute admin http://10.19.33.14:8774/v2.1/%\(tenant_id\)s
+
+	# openstack endpoint create --region RegionOne compute admin http://10.19.33.14:8774/v2.1/%\(tenant_id\)s
 
 create endpoint for [placement] (public);
-# openstack endpoint create --region RegionOne placement public http://10.19.33.14:8778
+
+	# openstack endpoint create --region RegionOne placement public http://10.19.33.14:8778
 
 create endpoint for [placement] (internal);
-# openstack endpoint create --region RegionOne placement internal http://10.19.33.14:8778
+
+	# openstack endpoint create --region RegionOne placement internal http://10.19.33.14:8778
 
 create endpoint for [placement] (admin);
-# openstack endpoint create --region RegionOne placement admin http://10.19.33.14:8778
+
+	# openstack endpoint create --region RegionOne placement admin http://10.19.33.14:8778
 
 
 Add a User and Database on MariaDB for Nova.
 
-# mysql -u root -p 
-MariaDB [(none)]> create database nova; 
-MariaDB [(none)]> grant all privileges on nova.* to nova@'localhost' identified by 'password';
-MariaDB [(none)]> grant all privileges on nova.* to nova@'%' identified by 'password'; 
-MariaDB [(none)]> create database nova_api;
-MariaDB [(none)]> grant all privileges on nova_api.* to nova@'localhost' identified by 'password';
-MariaDB [(none)]> grant all privileges on nova_api.* to nova@'%' identified by 'password';
-MariaDB [(none)]> create database nova_cell0;
-MariaDB [(none)]> grant all privileges on nova_cell0.* to nova@'localhost' identified by 'password'; 
-MariaDB [(none)]> grant all privileges on nova_cell0.* to nova@'%' identified by 'password';
-MariaDB [(none)]> create database placement; 
-MariaDB [(none)]> grant all privileges on placement.* to placement@'localhost' identified by 'password';
-MariaDB [(none)]> grant all privileges on placement.* to placement@'%' identified by 'password';
-MariaDB [(none)]> flush privileges;
-MariaDB [(none)]> exit
+	# mysql -u root -p 
+	MariaDB [(none)]> create database nova; 
+	MariaDB [(none)]> grant all privileges on nova.* to nova@'localhost' identified by 'password';
+	MariaDB [(none)]> grant all privileges on nova.* to nova@'%' identified by 'password'; 
+	MariaDB [(none)]> create database nova_api;
+	MariaDB [(none)]> grant all privileges on nova_api.* to nova@'localhost' identified by 'password';
+	MariaDB [(none)]> grant all privileges on nova_api.* to nova@'%' identified by 'password';
+	MariaDB [(none)]> create database nova_cell0;
+	MariaDB [(none)]> grant all privileges on nova_cell0.* to nova@'localhost' identified by 'password'; 
+	MariaDB [(none)]> grant all privileges on nova_cell0.* to nova@'%' identified by 'password';
+	MariaDB [(none)]> create database placement; 
+	MariaDB [(none)]> grant all privileges on placement.* to placement@'localhost' identified by 'password';
+	MariaDB [(none)]> grant all privileges on placement.* to placement@'%' identified by 'password';
+	MariaDB [(none)]> flush privileges;
+	MariaDB [(none)]> exit
+
+----
+
+	# cp /etc/nova/nova.conf /root/backup-config/ 
+
+config nova.conf;
+
+	vim /etc/nova/nova.conf 
+
+	[DEFAULT]
+	# define own IP address
+	my_ip = 10.19.33.14
+	state_path = /var/lib/nova
+	enabled_apis = osapi_compute,metadata
+	log_dir = /var/log/nova
+	# RabbitMQ connection info
+	transport_url = rabbit://openstack:password@10.19.33.15
+
+	[api]
+	auth_strategy = keystone
+
+	# Glance connection info
+	[glance]
+	api_servers = http://10.19.33.14:9292
+
+	[oslo_concurrency]
+	lock_path = $state_path/tmp
+
+	[oslo_messaging_rabbit]
+	rabbit_ha_queues = true
+
+	#MariaDB connection info
+	[api_database]	
+	connection = mysql+pymysql://nova:password@10.19.33.15/nova_api
+
+	[database]
+	connection = mysql+pymysql://nova:password@10.19.33.15/nova
 
 
-# cp /etc/nova/nova.conf /root/backup-config/ 
-
-contig nova.conf;
-vim /etc/nova/nova.conf 
-
-[DEFAULT]
-# define own IP address
-my_ip = 10.19.33.14
-state_path = /var/lib/nova
-enabled_apis = osapi_compute,metadata
-log_dir = /var/log/nova
-# RabbitMQ connection info
-transport_url = rabbit://openstack:password@10.19.33.15
-
-[api]
-auth_strategy = keystone
-
-# Glance connection info
-[glance]
-api_servers = http://10.19.33.14:9292
-
-[oslo_concurrency]
-lock_path = $state_path/tmp
-
-[oslo_messaging_rabbit]
-rabbit_ha_queues = true
-
-# MariaDB connection info
-[api_database]
-connection = mysql+pymysql://nova:password@10.19.33.15/nova_api
-
-[database]
-connection = mysql+pymysql://nova:password@10.19.33.15/nova
+	# Keystone auth info
+	[keystone_authtoken]
+	www_authenticate_uri = http://10.19.33.14:5000
+	auth_url = http://10.19.33.14:5000
+	memcached_servers = "10.19.33.11:11211,10.19.33.12:11211,10.19.33.13:11211"
+	auth_type = password
+	project_domain_name = default
+	user_domain_name = default
+	project_name = service
+	username = nova
+	password = servicepassword
 
 
-# Keystone auth info
-[keystone_authtoken]
-www_authenticate_uri = http://10.19.33.14:5000
-auth_url = http://10.19.33.14:5000
-memcached_servers = "10.19.33.11:11211,10.19.33.12:11211,10.19.33.13:11211"
-auth_type = password
-project_domain_name = default
-user_domain_name = default
-project_name = service
-username = nova
-password = servicepassword
+	[placement]
+	auth_url = http://10.19.33.14:5000
+	os_region_name = RegionOne
+	auth_type = password
+	project_domain_name = default
+	user_domain_name = default
+	project_name = service
+	username = placement
+	password = servicepassword
 
+	[wsgi]
+	api_paste_config = /etc/nova/api-paste.ini
+	~
+	~
 
-[placement]
-auth_url = http://10.19.33.14:5000
-os_region_name = RegionOne
-auth_type = password
-project_domain_name = default
-user_domain_name = default
-project_name = service
-username = placement
-password = servicepassword
-
-[wsgi]
-api_paste_config = /etc/nova/api-paste.ini
-~
-~
-
-:wq
---
+	:wq
+----
 
 config nova-placement;
-# vim /etc/placement/placement.conf 
 
-[DEFAULT]
-debug = false
+	# vim /etc/placement/placement.conf 
 
-[api]
-auth_strategy = keystone
+	[DEFAULT]
+	debug = false
 
-[keystone_authtoken]
-www_authenticate_uri = http://10.19.33.14:5000
-auth_url = http://10.19.33.14:5000
-memcached_servers = "10.19.33.11:11211,10.19.33.12:11211,10.19.33.13:11211"
-auth_type = password
-project_domain_name = default
-user_domain_name = default
-project_name = service
-username = placement
-password = servicepassword
+	[api]
+	auth_strategy = keystone
 
-[placement_database]
-connection = mysql+pymysql://placement:password@10.19.33.15/placement
-~
-~
-:wq
----
+	[keystone_authtoken]
+	www_authenticate_uri = http://10.19.33.14:5000
+	auth_url = http://10.19.33.14:5000
+	memcached_servers = "10.19.33.11:11211,10.19.33.12:11211,10.19.33.13:11211"
+	auth_type = password
+	project_domain_name = default
+	user_domain_name = default
+	project_name = service
+	username = placement
+	password = servicepassword
+
+	[placement_database]
+	connection = mysql+pymysql://placement:password@10.19.33.15/placement
+	~
+	~
+	:wq
+	---
 
 config http placement-api
-# vim /etc/httpd/conf.d/00-placement-api.conf
 
-# add near line 15;
+	# vim /etc/httpd/conf.d/00-placement-api.conf
 
-  <Directory /usr/bin>
-    Require all granted
-  </Directory>
+add near line 15;
 
-</VirtualHost>
+	<Directory /usr/bin>
+    		Require all granted
+  	</Directory>
 
-:wq
+	</VirtualHost>
+	~
+	:wq
 
-Add Data into Database and start Nova services.;
+Add Data into Database and start Nova services;
 
-# su -s /bin/bash placement -c "placement-manage db sync" 
-# su -s /bin/bash nova -c "nova-manage api_db sync" 
-# su -s /bin/bash nova -c "nova-manage cell_v2 map_cell0"
-# su -s /bin/bash nova -c "nova-manage db sync" 
-# su -s /bin/bash nova -c "nova-manage cell_v2 create_cell --name cell1" 
+	# su -s /bin/bash placement -c "placement-manage db sync" 
+	# su -s /bin/bash nova -c "nova-manage api_db sync" 
+	# su -s /bin/bash nova -c "nova-manage cell_v2 map_cell0"
+	# su -s /bin/bash nova -c "nova-manage db sync" 
+	# su -s /bin/bash nova -c "nova-manage cell_v2 create_cell --name cell1" 
 
-# su -s /bin/bash nova -c "nova-manage cell_v2 list_cells"
+	# su -s /bin/bash nova -c "nova-manage cell_v2 list_cells"
 
 
-# pcs resource create nova-api systemd:openstack-nova-api clone interleave=true
-# pcs resource create nova-novncproxy systemd:openstack-nova-novncproxy clone interleave=true
-# pcs resource create nova-scheduler systemd:openstack-nova-scheduler clone interleave=true
-# pcs resource create nova-conductor systemd:openstack-nova-conductor clone interleave=true
+	# pcs resource create nova-api systemd:openstack-nova-api clone interleave=true
+	# pcs resource create nova-novncproxy systemd:openstack-nova-novncproxy clone interleave=true
+	# pcs resource create nova-scheduler systemd:openstack-nova-scheduler clone interleave=true
+	# pcs resource create nova-conductor systemd:openstack-nova-conductor clone interleave=true
 
-# pcs constraint order start nova-api-clone then nova-scheduler-clone
-# pcs constraint colocation add cinder-scheduler-clone with cinder-api-clone
-# pcs constraint order start nova-scheduler-clone  then nova-conductor
-# pcs constraint colocation add nova-conductor-clone with nova-scheduler-clone
+	# pcs constraint order start nova-api-clone then nova-scheduler-clone
+	# pcs constraint colocation add cinder-scheduler-clone with cinder-api-clone
+	# pcs constraint order start nova-scheduler-clone  then nova-conductor
+	# pcs constraint colocation add nova-conductor-clone with nova-scheduler-clone
 
 
 --------------------------------------------------------------------------------------------------
 
 add compute node / nova-compute;
 
-jika firewall hidup
-# firewall-cmd --add-port=5900-5999/tcp --permanent
-# firewall-cmd --reload
+if firewall on
+
+	# firewall-cmd --add-port=5900-5999/tcp --permanent
+	# firewall-cmd --reload
 
 
-# dnf --enablerepo=centos-openstack-ussuri,PowerTools,epel -y install openstack-nova-compute 
-# dnf --enablerepo=centos-openstack-ussuri -y install openstack-selinux 
+	# dnf --enablerepo=centos-openstack-ussuri,PowerTools,epel -y install openstack-nova-compute 
+	# dnf --enablerepo=centos-openstack-ussuri -y install openstack-selinux 
 
-# setsebool -P neutron_can_network on
+	# setsebool -P neutron_can_network on
 
-# setsebool -P daemons_enable_cluster_mode on 
+	# setsebool -P daemons_enable_cluster_mode on 
 
-# vim /etc/nova/nova.conf
+	# vim /etc/nova/nova.conf
 
-[DEFAULT]
-# define own IP address
-my_ip = 10.19.33.9
-state_path = /var/lib/nova
-enabled_apis = osapi_compute,metadata
-log_dir = /var/log/nova
-# RabbitMQ connection info
-transport_url = rabbit://openstack:password@10.19.33.15
+		[DEFAULT]
+		# define own IP address
+		my_ip = 10.19.33.9
+		state_path = /var/lib/nova
+		enabled_apis = osapi_compute,metadata
+		log_dir = /var/log/nova
+		# RabbitMQ connection info
+		transport_url = rabbit://openstack:password@10.19.33.15
 
-[api]
-auth_strategy = keystone
-
-
-[vnc]
-enabled = True
-server_listen = 0.0.0.0
-server_proxyclient_address = $my_ip
-novncproxy_base_url = http://10.19.33.14:6080/vnc_auto.html 
-
-[glance]
-api_servers = http://10.19.33.14:9292
-
-[oslo_concurrency]
-lock_path = $state_path/tmp
-
-[oslo_messaging_rabbit]
-rabbit_ha_queues = true
-
-# Keystone auth info
-[keystone_authtoken]
-www_authenticate_uri = http://10.19.33.14:5000
-auth_url = http://10.19.33.14:5000
-memcached_servers = "10.19.33.11:11211,10.19.33.12:11211,10.19.33.13:11211"
-auth_type = password
-project_domain_name = default
-user_domain_name = default
-project_name = service
-username = nova
-password = servicepassword
-
-[placement]
-auth_url = http://10.19.33.14:5000
-os_region_name = RegionOne
-auth_type = password
-project_domain_name = default
-user_domain_name = default
-project_name = service
-username = placement
-password = servicepassword
-
-[wsgi]
-api_paste_config = /etc/nova/api-paste.ini
-
-:wq
-
-# systemctl enable --now openstack-nova-compute 
+		[api]
+		auth_strategy = keystone
 
 
+		[vnc]
+		enabled = True
+		server_listen = 0.0.0.0
+		server_proxyclient_address = $my_ip
+		novncproxy_base_url = http://10.19.33.14:6080/vnc_auto.html 
 
-==================================================================================================================================================================
+		[glance]
+		api_servers = http://10.19.33.14:9292
+
+		[oslo_concurrency]
+		lock_path = $state_path/tmp
+
+		[oslo_messaging_rabbit]
+		rabbit_ha_queues = true
+
+		# Keystone auth info
+		[keystone_authtoken]
+		www_authenticate_uri = http://10.19.33.14:5000
+		auth_url = http://10.19.33.14:5000
+		memcached_servers = "10.19.33.11:11211,10.19.33.12:11211,10.19.33.13:11211"
+		auth_type = password
+		project_domain_name = default
+		user_domain_name = default
+		project_name = service
+		username = nova
+		password = servicepassword
+
+		[placement]
+		auth_url = http://10.19.33.14:5000
+		os_region_name = RegionOne
+		auth_type = password
+		project_domain_name = default
+		user_domain_name = default
+		project_name = service
+		username = placement
+		password = servicepassword
+
+		[wsgi]
+		api_paste_config = /etc/nova/api-paste.ini
+		~
+		:wq
+
+		# systemctl enable --now openstack-nova-compute 
+
+
+
+=================================================================================================================================================================
 
 install and configure neutron controller
 
-Sebaiknya firewall dimatikan;
+Better serivce firewall turn off;
 
-# dnf --enablerepo=centos-openstack-ussuri,PowerTools,epel -y install openstack-neutron openstack-neutron-ml2 openstack-neutron-openvswitch 
-
-
-# firewall-cmd --add-port=9696/tcp --permanent
-
-# firewall-cmd --reload 
+	# dnf --enablerepo=centos-openstack-ussuri,PowerTools,epel -y install openstack-neutron openstack-neutron-ml2 openstack-neutron-openvswitch 
 
 
-# setsebool -P neutron_can_network on
+	# firewall-cmd --add-port=9696/tcp --permanent
 
-# setsebool -P haproxy_connect_any on
+	# firewall-cmd --reload 
 
-# setsebool -P daemons_enable_cluster_mode on 
+
+	# setsebool -P neutron_can_network on
+
+	# setsebool -P haproxy_connect_any on
+
+	# setsebool -P daemons_enable_cluster_mode on 
 
 
 create [neutron] user in [service] project;
-# openstack user create --domain default --project service --password servicepassword neutron 
+
+	# openstack user create --domain default --project service --password servicepassword neutron 
 
 add [neutron] user in [admin] role;
-# openstack role add --project service --user neutron admin 
+
+	# openstack role add --project service --user neutron admin 
 
 create service entry for [neutron];
-# openstack service create --name neutron --description "OpenStack Networking service" network 
+
+	# openstack service create --name neutron --description "OpenStack Networking service" network 
 
 define Neutron API Host;
 create endpoint for [neutron] (public);
-# openstack endpoint create --region RegionOne network public http://10.19.33.14:9696
+
+	# openstack endpoint create --region RegionOne network public http://10.19.33.14:9696
 
 create endpoint for [neutron] (internal);
-# openstack endpoint create --region RegionOne network internal http://10.19.33.14:9696
+
+	# openstack endpoint create --region RegionOne network internal http://10.19.33.14:9696
 
 create endpoint for [neutron] (admin);
-# openstack endpoint create --region RegionOne network admin http://10.19.33.14:9696
+
+	# openstack endpoint create --region RegionOne network admin http://10.19.33.14:9696
 
 
 Add a User and Database on MariaDB for Neutron.
-# mysql -u root -p 
 
-MariaDB [(none)]> create database neutron_ml2; 
-MariaDB [(none)]> grant all privileges on neutron_ml2.* to neutron@'localhost' identified by 'password';
-MariaDB [(none)]> grant all privileges on neutron_ml2.* to neutron@'%' identified by 'password'; 
-MariaDB [(none)]> flush privileges; 
-MariaDB [(none)]> exit 
+	# mysql -u root -p 
+
+	MariaDB [(none)]> create database neutron_ml2; 
+	MariaDB [(none)]> grant all privileges on neutron_ml2.* to neutron@'localhost' identified by 'password';
+	MariaDB [(none)]> grant all privileges on neutron_ml2.* to neutron@'%' identified by 'password'; 
+	MariaDB [(none)]> flush privileges; 
+	MariaDB [(none)]> exit 
 
 
 config file neutron.conf;
-# cp /etc/neutron/neutron.conf /root/backup-config/
-# vim  /etc/neutron/neutron.conf
 
-[DEFAULT]
-core_plugin = ml2
-service_plugins = router
-auth_strategy = keystone
-state_path = /var/lib/neutron
-dhcp_agent_notification = True
-allow_overlapping_ips = True
-notify_nova_on_port_status_changes = True
-notify_nova_on_port_data_changes = True
-# RabbitMQ connection info
-transport_url = rabbit://openstack:password@10.19.33.15
+	# cp /etc/neutron/neutron.conf /root/backup-config/
+	# vim  /etc/neutron/neutron.conf
 
-
-# Keystone auth info
-[keystone_authtoken]
-www_authenticate_uri = http://10.19.33.14:5000
-auth_url = http://10.19.33.14:5000
-memcached_servers = "10.19.33.11:11211,10.19.33.12:11211,10.19.33.13:11211"
-auth_type = password
-project_domain_name = default
-user_domain_name = default
-project_name = service
-username = neutron
-password = servicepassword
+		[DEFAULT]
+		core_plugin = ml2
+		service_plugins = router
+		auth_strategy = keystone
+		state_path = /var/lib/neutron
+		dhcp_agent_notification = True
+		allow_overlapping_ips = True
+		notify_nova_on_port_status_changes = True
+		notify_nova_on_port_data_changes = True
+		# RabbitMQ connection info
+		transport_url = rabbit://openstack:password@10.19.33.15
 
 
-# MariaDB connection info
-[database]
-connection = mysql+pymysql://neutron:password@10.19.33.15/neutron_ml2
+		# Keystone auth info
+		[keystone_authtoken]
+		www_authenticate_uri = http://10.19.33.14:5000
+		auth_url = http://10.19.33.14:5000
+		memcached_servers = "10.19.33.11:11211,10.19.33.12:11211,10.19.33.13:11211"
+		auth_type = password
+		project_domain_name = default
+		user_domain_name = default
+		project_name = service
+		username = neutron
+		password = servicepassword
 
-# Nova connection info
-[nova]
-auth_url = http://10.19.33.14:5000
-auth_type = password
-project_domain_name = default
-user_domain_name = default
-region_name = RegionOne
-project_name = service
-username = nova
-password = servicepassword
 
-[oslo_concurrency]
-lock_path = $state_path/tmp
+		# MariaDB connection info
+		[database]
+		connection = mysql+pymysql://neutron:password@10.19.33.15/neutron_ml2
 
-[oslo_messaging_rabbit]
-rabbit_ha_queues = true
+		# Nova connection info
+		[nova]
+		auth_url = http://10.19.33.14:5000
+		auth_type = password
+		project_domain_name = default
+		user_domain_name = default
+		region_name = RegionOne
+		project_name = service
+		username = nova
+		password = servicepassword
 
-:wq
+		[oslo_concurrency]
+		lock_path = $state_path/tmp
+
+		[oslo_messaging_rabbit]
+		rabbit_ha_queues = true
+		~
+		:wq
 ----
 
-# chmod 640 /etc/neutron/neutron.conf 
-# chgrp neutron /etc/neutron/neutron.conf 
+		# chmod 640 /etc/neutron/neutron.conf 
+		# chgrp neutron /etc/neutron/neutron.conf 
 
 
-self service neutron on all controller node
+self service network neutron on all controller node
 
 config l3_agent.ini;
-# vim /etc/neutron/l3_agent.ini
 
-# line 2: add
-interface_driver = openvswitch 
-~
+	# vim /etc/neutron/l3_agent.ini
 
-:wq
+	# line 2: add
+	interface_driver = openvswitch 
+	~
+
+	:wq
 -----
 
 config neutron dhcp_agent.ini;
-# vim /etc/neutron/dhcp_agent.ini 
-# line 2: add
 
-interface_driver = openvswitch
-dhcp_driver = neutron.agent.linux.dhcp.Dnsmasq
-enable_isolated_metadata = true 
-~
+	# vim /etc/neutron/dhcp_agent.ini 
+	# line 2: add
 
-:wq
+	interface_driver = openvswitch
+	dhcp_driver = neutron.agent.linux.dhcp.Dnsmasq
+	enable_isolated_metadata = true 
+	~
+
+	:wq
 -----
 
 config neutron metadata_agent.ini;
-# vim /etc/neutron/metadata_agent.ini 
 
- # line 2: add
+	# vim /etc/neutron/metadata_agent.ini 
 
- # specify Nova API server
+ 	# line 2: add
 
-nova_metadata_host = 10.19.33.14
-# specify any secret key you like
+	 # specify Nova API server
 
-metadata_proxy_shared_secret = metadata_secret
-# line 212: uncomment and specify Memcache server
+	nova_metadata_host = 10.19.33.14
+	# specify any secret key you like
 
-memcache_servers = "10.19.33.11:11211,10.19.33.12:11211,10.19.33.13:11211"
+	metadata_proxy_shared_secret = metadata_secret
+	# line 212: uncomment and specify Memcache server
 
-~
-:wq
+	memcache_servers = "10.19.33.11:11211,10.19.33.12:11211,10.19.33.13:11211"
+
+	~
+	:wq
 -----
 
 config neutron plugins ml2_conf.ini;
-# vim /etc/neutron/plugins/ml2/ml2_conf.ini 
 
- # add to the end
+	# vim /etc/neutron/plugins/ml2/ml2_conf.ini 
+
+	 # add to the end
  
- # OK with no value for [tenant_network_types] now (set later if need)
+ 	# OK with no value for [tenant_network_types] now (set later if need)
 
-[ml2]
-type_drivers = flat,vlan,gre,vxlan
-tenant_network_types = vxlan
-mechanism_drivers = openvswitch
-extension_drivers = port_security
+	[ml2]
+	type_drivers = flat,vlan,gre,vxlan
+	tenant_network_types = vxlan
+	mechanism_drivers = openvswitch
+	extension_drivers = port_security
 
-[ml2_type_flat]
-flat_networks = physnet1
+	[ml2_type_flat]
+	flat_networks = physnet1
 
-[ml2_type_vxlan]
-vni_ranges = 1:1000
-~
-~
+	[ml2_type_vxlan]
+	vni_ranges = 1:1000
+	~
+	~
 
-:wq
+	:wq
 ----
 
 config plungin ml2 openvswitch_agent.ini;
-# vim /etc/neutron/plugins/ml2/openvswitch_agent.ini 
 
-# add to the end
+	# vim /etc/neutron/plugins/ml2/openvswitch_agent.ini 
 
-[securitygroup]
-firewall_driver = openvswitch
-enable_security_group = true
-enable_ipset = true
+	# add to the end
 
-# add to the end
+	[securitygroup]
+	firewall_driver = openvswitch
+	enable_security_group = true
+	enable_ipset = true
 
-[ovs]
-bridge_mappings = physnet1:br-enp2s0
-local_ip = 10.19.33.11
-# add to the end
+	# add to the end
 
-[agent]
-tunnel_types = vxlan
-prevent_arp_spoofing = True
-~
-~
+	[ovs]
+	bridge_mappings = physnet1:br-enp2s0
+	local_ip = 10.19.33.11
+	# add to the end
 
-:wq
+	[agent]
+	tunnel_types = vxlan
+	prevent_arp_spoofing = True
+	~
+	~
+
+	:wq
 ----
 
 config neutron on nova config;
-# vim /etc/nova/nova.conf 
 
- # add follows into [DEFAULT] section
+	# vim /etc/nova/nova.conf 
 
-use_neutron = True
-linuxnet_interface_driver = nova.network.linux_net.LinuxOVSInterfaceDriver
-firewall_driver = nova.virt.firewall.NoopFirewallDriver
-vif_plugging_is_fatal = True
-vif_plugging_timeout = 300
+ 	# add follows into [DEFAULT] section
 
- # add follows to the end : Neutron auth info
- # the value of [metadata_proxy_shared_secret] is the same with the one in [metadata_agent.ini]
+	use_neutron = True
+	linuxnet_interface_driver = nova.network.linux_net.LinuxOVSInterfaceDriver
+	firewall_driver = nova.virt.firewall.NoopFirewallDriver
+	vif_plugging_is_fatal = True
+	vif_plugging_timeout = 300
 
-[neutron]
-auth_url = http://10.19.33.14:5000
-auth_type = password
-project_domain_name = default
-user_domain_name = default
-region_name = RegionOne
-project_name = service
-username = neutron
-password = servicepassword
-service_metadata_proxy = True
-metadata_proxy_shared_secret = metadata_secret
-~
-~
+	 # add follows to the end : Neutron auth info
+ 	# the value of [metadata_proxy_shared_secret] is the same with the one in [metadata_agent.ini]
 
-:wq
---
+	[neutron]
+	auth_url = http://10.19.33.14:5000
+	auth_type = password
+	project_domain_name = default
+	user_domain_name = default
+	region_name = RegionOne
+	project_name = service
+	username = neutron
+	password = servicepassword
+	service_metadata_proxy = True
+	metadata_proxy_shared_secret = metadata_secret
+	~
+	~
 
+	:wq
+	
+----
 
 
 start and enable service openvswicth on all controller node;
-# systemctl enable --now openvswitch.service
+
+	# systemctl enable --now openvswitch.service
 
 
-# ovs-vsctl add-br br-int 
+	# ovs-vsctl add-br br-int 
 
-# ln -s /etc/neutron/plugins/ml2/ml2_conf.ini /etc/neutron/plugin.ini 
+	# ln -s /etc/neutron/plugins/ml2/ml2_conf.ini /etc/neutron/plugin.ini 
 
-# su -s /bin/bash neutron -c "neutron-db-manage --config-file /etc/neutron/neutron.conf --config-file /etc/neutron/plugin.ini upgrade head" 
+	# su -s /bin/bash neutron -c "neutron-db-manage --config-file /etc/neutron/neutron.conf --config-file /etc/neutron/plugin.ini upgrade head" 
 
-# pcs resource create neutron-server systemd:neutron-server clone interleave=true 
-# pcs resource create neutron-dhcp-agent systemd:neutron-dhcp-agent clone interleave=true 
-# pcs resource create neutron-l3-agent systemd:neutron-l3-agent clone interleave=true 
-# pcs resource create neutron-metadata-agent systemd:neutron-metadata-agent clone interleave=true 
-# pcs resource create neutron-openvswitch-agent systemd:neutron-openvswitch-agent clone interleave=true
+	# pcs resource create neutron-server systemd:neutron-server clone interleave=true 
+	# pcs resource create neutron-dhcp-agent systemd:neutron-dhcp-agent clone interleave=true 
+	# pcs resource create neutron-l3-agent systemd:neutron-l3-agent clone interleave=true 
+	# pcs resource create neutron-metadata-agent systemd:neutron-metadata-agent clone interleave=true 
+	# pcs resource create neutron-openvswitch-agent systemd:neutron-openvswitch-agent clone interleave=true
 
-# openstack network agent list 
+	# openstack network agent list 
 
 ------------------------------------
  	
 Configure Networking for Virtual Machine Instances;
 
 add bridge
-# ovs-vsctl add-br br-int
-# ovs-vsctl add-br br-enp2s0
-# ovs-vsctl add-port br-enp2s0 enp2s0
+
+	# ovs-vsctl add-br br-int
+	# ovs-vsctl add-br br-enp2s0
+	# ovs-vsctl add-port br-enp2s0 enp2s0
 
 
-add network flat;
-# vim /etc/neutron/plugins/ml2/ml2_conf.ini  
- # add to the end
+add network flat and vxlan;
 
-[ml2_type_flat]
-flat_networks = physnet1
+	# vim /etc/neutron/plugins/ml2/ml2_conf.ini  
+ 	# add to the end
 
-:wq
+	[ml2_type_flat]
+	flat_networks = physnet1
+
+	:wq
 -----
 
-# vim /etc/neutron/plugins/ml2/openvswitch_agent.ini
+	# vim /etc/neutron/plugins/ml2/openvswitch_agent.ini
 
-# add to the end
+	# add to the end
 
-[ovs]
-bridge_mappings = physnet1:br-enp2s0
+	[ovs]
+	bridge_mappings = physnet1:br-enp2s0
 
-:wq
+	:wq
 -----
-
-
-test create network and subnet;
-
-# openstack network create --project $projectID --share --provider-network-type flat --provider-physical-network physnet1 sharednet1 
-
-# openstack subnet create subnet1 --network sharednet1 \
---project $projectID --subnet-range 10.19.33.0/24 \
---allocation-pool start=10.19.33.200,end=10.19.33.254 \
---gateway 10.19.33.1 --dns-nameserver 10.19.31.3 
 
 
 =============================================================================================================
 
 install neutron om compute-node;
 
-firewall sebaiknya di matikan
-
-# dnf --enablerepo=centos-openstack-ussuri,PowerTools,epel -y install openstack-neutron openstack-neutron-ml2 openstack-neutron-openvswitch
-
-# dnf --enablerepo=centos-openstack-ussuri -y install openstack-selinux 
-
-# setsebool -P neutron_can_network on
-
-# setsebool -P daemons_enable_cluster_mode on 
-
-# systemctl restart --now openvswitch 
-
-# ovs-vsctl add-br br-enp2s0
-
-# ovs-vsctl add-port br-enp2s0 enp2s0
+bettet firewall turn off
 
 
-# ovs-vsctl add-port br-enp2s0 enp2s0
+	# dnf --enablerepo=centos-openstack-ussuri,PowerTools,epel -y install openstack-neutron openstack-neutron-ml2 openstack-neutron-openvswitch
 
-# cp /etc/neutron/neutron.conf /root/backup-config/ 
+	# dnf --enablerepo=centos-openstack-ussuri -y install openstack-selinux 
 
-# vim /etc/neutron/neutron.conf
+	# setsebool -P neutron_can_network on
+
+	# setsebool -P daemons_enable_cluster_mode on 
+
+	# systemctl enable --now openvswitch 
+	
+	# ovs-vsctl add-br br-int
+
+	# ovs-vsctl add-br br-enp2s0
+
+	# ovs-vsctl add-port br-enp2s0 enp2s0
 
 
-[DEFAULT]
-core_plugin = ml2
-service_plugins = router
-auth_strategy = keystone
-state_path = /var/lib/neutron
-allow_overlapping_ips = True
-# RabbitMQ connection info
-transport_url = rabbit://openstack:password@10.19.33.15
+	# ovs-vsctl add-port br-enp2s0 enp2s0
 
-# Keystone auth info
-[keystone_authtoken]
-www_authenticate_uri = http://10.19.33.14:5000
-auth_url = http://10.19.33.14:5000
-memcached_servers = "10.19.33.11:11211,10.19.3.12:11211,10.19.33.13:11211"
-auth_type = password
-project_domain_name = default
-user_domain_name = default
-project_name = service
-username = neutron
-password = servicepassword
+	# cp /etc/neutron/neutron.conf /root/backup-config/ 
+	
+-----
 
-[oslo_concurrency]
-lock_path = $state_path/lock
+	# vim /etc/neutron/neutron.conf
 
-[oslo_messaging_rabbit]
-rabbit_ha_queues = true
 
-:wq
+	[DEFAULT]
+	core_plugin = ml2
+	service_plugins = router
+	auth_strategy = keystone
+	state_path = /var/lib/neutron
+	allow_overlapping_ips = True
+	# RabbitMQ connection info
+	transport_url = rabbit://openstack:password@10.19.33.15
+
+	# Keystone auth info
+	[keystone_authtoken]
+	www_authenticate_uri = http://10.19.33.14:5000
+	auth_url = http://10.19.33.14:5000
+	memcached_servers = "10.19.33.11:11211,10.19.3.12:11211,10.19.33.13:11211"
+	auth_type = password
+	project_domain_name = default
+	user_domain_name = default
+	project_name = service
+	username = neutron
+	password = servicepassword
+
+	[oslo_concurrency]
+	lock_path = $state_path/lock
+
+	[oslo_messaging_rabbit]
+	rabbit_ha_queues = true
+	~
+	~
+	:wq
 ----
 
-# chmod 640 /etc/neutron/neutron.conf 
-# chgrp neutron /etc/neutron/neutron.conf
+	# chmod 640 /etc/neutron/neutron.conf 
+	# chgrp neutron /etc/neutron/neutron.conf
 
 self service neutron on compute node;
 
-# vim /etc/neutron/plugins/ml2/ml2_conf.ini 
+
+	# vim /etc/neutron/plugins/ml2/ml2_conf.ini 
  
- # add to the end
+	 # add to the end
 
- # OK with no value for [tenant_network_types] now (set later if need)
+ 	# OK with no value for [tenant_network_types] now (set later if need)
 
-[ml2]
-type_drivers = flat,vlan,gre,vxlan
-tenant_network_types = vxlan
-mechanism_drivers = openvswitch
-extension_drivers = port_security
+	[ml2]
+	type_drivers = flat,vlan,gre,vxlan
+	tenant_network_types = vxlan
+	mechanism_drivers = openvswitch
+	extension_drivers = port_security
 
-[ml2_type_flat]
-flat_networks = physnet1
+	[ml2_type_flat]
+	flat_networks = physnet1
 
-[ml2_type_vxlan]
-vni_ranges = 1:1000
-~
-~
+	[ml2_type_vxlan]
+	vni_ranges = 1:1000
+	~
+	~
 
-:wq
+	:wq
 ----
 
-# vim /etc/neutron/plugins/ml2/openvswitch_agent.ini 
+	# vim /etc/neutron/plugins/ml2/openvswitch_agent.ini 
 
- # add to the end
+ 	# add to the end
 
-[securitygroup]
-firewall_driver = openvswitch
-enable_security_group = true
-enable_ipset = true
+	[securitygroup]
+	firewall_driver = openvswitch
+	enable_security_group = true
+	enable_ipset = true
 
-[agent]
-tunnel_types = vxlan
-prevent_arp_spoofing = True
+	[agent]
+	tunnel_types = vxlan
+	prevent_arp_spoofing = True
 
 
-[ovs]
-bridge_mappings = physnet1:br-enp2s0
-local_ip = 10.19.33.9
-~
-~
-:wq
+	[ovs]
+	bridge_mappings = physnet1:br-enp2s0
+	local_ip = 10.19.33.9
+	~
+	~
+	:wq
 ----
 
-# vim /etc/nova/nova.conf 
+	# vim /etc/nova/nova.conf 
 
-  # add follows into [DEFAULT] section
+  	# add follows into [DEFAULT] section
 
-use_neutron = True
-linuxnet_interface_driver = nova.network.linux_net.LinuxOVSInterfaceDriver
-firewall_driver = nova.virt.firewall.NoopFirewallDriver
-vif_plugging_is_fatal = True
-vif_plugging_timeout = 300
+	use_neutron = True
+	linuxnet_interface_driver = nova.network.linux_net.LinuxOVSInterfaceDriver
+	firewall_driver = nova.virt.firewall.NoopFirewallDriver
+	vif_plugging_is_fatal = True
+	vif_plugging_timeout = 300
 
- # add follows to the end: Neutron auth info
- # the value of [metadata_proxy_shared_secret] is the same with the one in [metadata_agent.ini]
+	 # add follows to the end: Neutron auth info
+ 	# the value of [metadata_proxy_shared_secret] is the same with the one in [metadata_agent.ini]
 
-[neutron]
-auth_url = http://10.19.33.14:5000
-auth_type = password
-project_domain_name = default
-user_domain_name = default
-region_name = RegionOne
-project_name = service
-username = neutron
-password = servicepassword
-service_metadata_proxy = True
-metadata_proxy_shared_secret = metadata_secret
+	[neutron]
+	auth_url = http://10.19.33.14:5000
+	auth_type = password
+	project_domain_name = default
+	user_domain_name = default
+	region_name = RegionOne
+	project_name = service
+	username = neutron
+	password = servicepassword
+	service_metadata_proxy = True
+	metadata_proxy_shared_secret = metadata_secret
 
-:wq
+	:wq
 -----
 
-# ln -s /etc/neutron/plugins/ml2/ml2_conf.ini /etc/neutron/plugin.ini 
+	# ln -s /etc/neutron/plugins/ml2/ml2_conf.ini /etc/neutron/plugin.ini 
 
-# systemctl enable --now openvswitch 
+	# systemctl enable --now openvswitch  
 
-# ovs-vsctl add-br br-int 
+	# systemctl restart openstack-nova-compute 
 
-# systemctl restart openstack-nova-compute 
-
-# systemctl enable --now neutron-openvswitch-agent 
+	# systemctl enable --now neutron-openvswitch-agent 
 
 
 running sysnd db nova on controller node;
-# su -s /bin/bash nova -c "nova-manage cell_v2 discover_hosts" 
+
+	# su -s /bin/bash nova -c "nova-manage cell_v2 discover_hosts" 
 
 
 =====================================================================================
 
 Install Horizon. 
 
-# dnf --enablerepo=centos-openstack-ussuri,PowerTools,epel -y install openstack-dashboard 
+	# dnf --enablerepo=centos-openstack-ussuri,PowerTools,epel -y install openstack-dashboard 
 
-# firewall-cmd --add-service={http,https} --permanent
+	# firewall-cmd --add-service={http,https} --permanent
 
-# firewall-cmd --reload
+	# firewall-cmd --reload
 
-# setsebool -P httpd_can_network_connect on 
+	# setsebool -P httpd_can_network_connect on 
 
 config openstack dashboard
-# vi /etc/openstack-dashboard/local_settings 
 
-  # line 39: set Hosts you allow to access
-  # to specify wildcard ['*'], allow all
+	# vi /etc/openstack-dashboard/local_settings 
 
-ALLOWED_HOSTS = ['*', ] 
+  	# line 39: set Hosts you allow to access
+ 	 # to specify wildcard ['*'], allow all
+
+	ALLOWED_HOSTS = ['*', ] 
     
-  # line 94-99: uncomment and specify Memcache server Host
+ 	# line 94-99: uncomment and specify Memcache server Host
 
-CACHES = {
-    'default': {
-        'BACKEND': 'django.core.cache.backends.memcached.MemcachedCache',
-        'LOCATION': '10.19.33.11:11211,10.19.33.12:11211,10.19.33.13:11211',
-    },
-}
-
-
-   # line 105: add
-
-SESSION_ENGINE = "django.contrib.sessions.backends.cache" 
-
-   # line 118: set Openstack Host
-   # line 119: comment out and add a line to specify URL of Keystone Host
-
-OPENSTACK_HOST = "10.19.33.14"
-#OPENSTACK_KEYSTONE_URL = "http://%s:5000/v3" % OPENSTACK_HOST
-OPENSTACK_KEYSTONE_URL = "http://10.19.33.14:5000/v3"
-
-   # line 123: set your timezone
-
-TIME_ZONE = "Asia/Jakarta" 
-
-   # add to the end
-
-WEBROOT = '/dashboard/'
-LOGIN_URL = '/dashboard/auth/login/'
-LOGOUT_URL = '/dashboard/auth/logout/'
-LOGIN_REDIRECT_URL = '/dashboard/'
-OPENSTACK_KEYSTONE_MULTIDOMAIN_SUPPORT = True
-OPENSTACK_KEYSTONE_DEFAULT_DOMAIN = 'Default'
-OPENSTACK_API_VERSIONS = {
-    "identity": 3,
-    "volume": 3,
-    "compute": 2,
-}
+	CACHES = {
+    		'default': {
+       		 'BACKEND': 'django.core.cache.backends.memcached.MemcachedCache',
+        		'LOCATION': '10.19.33.11:11211,10.19.33.12:11211,10.19.33.13:11211',
+    		},
+	}
 
 
-:wq
+  	 # line 105: add
+
+	SESSION_ENGINE = "django.contrib.sessions.backends.cache" 
+
+   	# line 118: set Openstack Host
+   	# line 119: comment out and add a line to specify URL of Keystone Host
+
+	OPENSTACK_HOST = "10.19.33.14"
+	#OPENSTACK_KEYSTONE_URL = "http://%s:5000/v3" % OPENSTACK_HOST
+	OPENSTACK_KEYSTONE_URL = "http://10.19.33.14:5000/v3"
+
+   	# line 123: set your timezone
+
+	TIME_ZONE = "Asia/Jakarta" 
+
+  	 # add to the end
+
+	WEBROOT = '/dashboard/'
+	LOGIN_URL = '/dashboard/auth/login/'
+	LOGOUT_URL = '/dashboard/auth/logout/'
+	LOGIN_REDIRECT_URL = '/dashboard/'
+	OPENSTACK_KEYSTONE_MULTIDOMAIN_SUPPORT = True
+	OPENSTACK_KEYSTONE_DEFAULT_DOMAIN = 'Default'
+	OPENSTACK_API_VERSIONS = {
+   	 "identity": 3,
+    	"volume": 3,
+    	"compute": 2,
+	}
+	~
+	!
+	:wq
 -----
 
-# vim /etc/httpd/conf.d/openstack-dashboard.conf 
+	# vim /etc/httpd/conf.d/openstack-dashboard.conf 
 
-  # line 4: add
+  	# line 4: add
 
-WSGIDaemonProcess dashboard
-WSGIProcessGroup dashboard
-WSGISocketPrefix run/wsgi
-WSGIApplicationGroup %{GLOBAL}
+	WSGIDaemonProcess dashboard
+	WSGIProcessGroup dashboard
+	WSGISocketPrefix run/wsgi
+	WSGIApplicationGroup %{GLOBAL}
 
-:wq
+	:wq
 ----
 
 restart service http
+
+	# systemctl restart httpd
 
 
 open horizon dashboard with link http:/10.19.33.15:/dashboard

@@ -1,28 +1,28 @@
-# openstack-ussuri-3ha-controller
+# openstack-ussuri-3 node controller HA Versi 1.0
 HA 3 node controller with 1 node compute and 1 node haproxy
 
 
 reference source;
 
-https://www.server-world.info/en/note?os=CentOS_8&p=openstack_ussuri&f=2
-https://www.golinuxcloud.com/configure-openstack-high-availability-pacemaker/
-https://www.golinuxcloud.com/configure-haproxy-in-openstack-high-availability/
-https://github.com/hoperays/openstack-ha-manual-deploy
-https://hub.packtpub.com/deploying-highly-available-openstack/
-https://www.sebastien-han.fr/blog/2012/05/21/openstack-high-availability-rabbitmq/ 
+	https://www.server-world.info/en/note?os=CentOS_8&p=openstack_ussuri&f=2
+	https://www.golinuxcloud.com/configure-openstack-high-availability-pacemaker/
+	https://www.golinuxcloud.com/configure-haproxy-in-openstack-high-availability/
+	https://github.com/hoperays/openstack-ha-manual-deploy
+	https://hub.packtpub.com/deploying-highly-available-openstack/
+	https://www.sebastien-han.fr/blog/2012/05/21/openstack-high-availability-rabbitmq/ 
 
 
 deploy HA controller openstack train using 3 node controller
 
         
-            		          		VIP 10.19.33.14
+            		          		 VIP 10.19.33.14
                                         		|
            				 		|
-                  		______________                  ____________
-    		controller1                       controller2      	       controller3                  compute-node                   haproxy         
-  		enp1s0: 10.19.33.11 	        enp1s0: 10.19.33.12 	    enp1s0: 10.19.33.13          enp1s0: 10.19.33.13          enp1s0: 10.19.33.15  
-  		enp2s0: ovs                      enp2s0: ovs                enp2s0: ovs                  enp2s0: ovs                                       
-
+                ----------------------          ---------------------      ----------------------         ---------------------         -----------------------
+    		|controller1         |         |    controller2     | 	   | controller3        |         |compute-node        |        | haproxy             |
+  		|enp1s0: 10.19.33.11 | 	       | enp1s0: 10.19.33.12| 	   | enp1s0: 10.19.33.13|         |enp1s0: 10.19.33.13 |        | enp1s0: 10.19.33.15 | 
+  		|enp2s0: ovs         |         | enp2s0: ovs        |      | enp2s0: ovs        |         |enp2s0: ovs         |        |                     |
+                ----------------------         ----------------------      ----------------------         ----------------------        -----------------------
            		|                               |                              | 
            		|_______________________________|______________________________|
                         		                |
@@ -85,65 +85,68 @@ Requirment config ntp chrony each node (config ntp ke sumua node);
 	:wq
 	~
 	~
----
+----
 
-# systemctl restart chronyd
-# systemctl enable chronyd
+	# systemctl restart chronyd
+	# systemctl enable chronyd
 
 
 Add Repository of Openstack Ussuri; 
-# dnf -y install centos-release-openstack-ussuri  
-# dnf -y install epel-release
+	# dnf -y install centos-release-openstack-ussuri  
+	# dnf -y install epel-release
 
 Install Pacemaker ALL host controller
 install pacemaker on controller1, controlle2 and controller3
 
 All host controller:
 
-# dnf --enablerepo=HighAvailability -y install pcs pacemaker fence-agents-all fence-agents-virsh
-# systemctl start pcsd
-# systemctl enable pcsd
-# passwd hacluster ( any each host )
+	# dnf --enablerepo=HighAvailability -y install pcs pacemaker fence-agents-all fence-agents-virsh
+	# systemctl start pcsd
+	# systemctl enable pcsd
+	# passwd hacluster ( any each host )
 
 
 controller1
-# pcs host auth controller1 controller2 controller3 -u hacluster -p password
-# pcs cluster setup openstack-cluster controller1 controller2 controller3
-# pcs cluster start --all
-# pcs cluster enable --all
-# pcs status corosync
-# pcs property set pe-warn-series-max=1000 pe-input-series-max=1000 pe-error-series-max=1000 cluster-recheck-interval=1min
-# pcs stonith create fence_controller1 fence_ipmilan ipaddr=10.19.33.3 ipport=6001 login=admin passwd=password  lanplus=1 op monitor interval=60s
-# pcs stonith create fence_controller2 fence_ipmilan ipaddr=10.19.33.3 ipport=6002 login=admin passwd=password  lanplus=1 op monitor interval=60s
-# pcs stonith create fence_controller3 fence_ipmilan ipaddr=10.19.33.3 ipport=6003 login=admin passwd=password  lanplus=1 op monitor interval=60s
-# pcs stonith level add 1 controller1 fence_controller1
-# pcs stonith level add 1 controller2 fence_controller2
-# pcs stonith level add 1 controller3 fence_controller3
+	
+	# pcs host auth controller1 controller2 controller3 -u hacluster -p password
+	# pcs cluster setup openstack-cluster controller1 controller2 controller3
+	# pcs cluster start --all
+	# pcs cluster enable --all
+	# pcs status corosync
+	# pcs property set pe-warn-series-max=1000 pe-input-series-max=1000 pe-error-series-max=1000 cluster-recheck-interval=1min
+	# pcs stonith create fence_controller1 fence_ipmilan ipaddr=10.19.33.3 ipport=6001 login=admin passwd=password  lanplus=1 op monitor interval=60s
+	# pcs stonith create fence_controller2 fence_ipmilan ipaddr=10.19.33.3 ipport=6002 login=admin passwd=password  lanplus=1 op monitor interval=60s
+	# pcs stonith create fence_controller3 fence_ipmilan ipaddr=10.19.33.3 ipport=6003 login=admin passwd=password  lanplus=1 op monitor interval=60s
+	# pcs stonith level add 1 controller1 fence_controller1
+	# pcs stonith level add 1 controller2 fence_controller2
+	# pcs stonith level add 1 controller3 fence_controller3
 
 on controller 1:
-# pcs resource create controller-vip IPaddr2 ip=10.19.33.14 cidr_netmask=24 nic=enp1s0 op monitor interval=30s
-# pcs status
+
+	# pcs resource create controller-vip IPaddr2 ip=10.19.33.14 cidr_netmask=24 nic=enp1s0 op monitor interval=30s
+	# pcs status
+
 
 firwalld config all controller node;
-Jika firwall nya hidup, lebih baik stop service firewall nya
+if firwall on, better stop service of firewall
 
-#firewall-cmd --add-port={3306/tcp,4567/tcp,4568/tcp,4444/tcp} --permanent 
-#firewall-cmd --permanent --add-port=9300/tcp
-#firewall-cmd --permanent --add-port=3306/tcp
-#firewall-cmd --permanent --add-port=9200/tcp
-#firewall-cmd --permanent --add-port=35357/tcp
-#firewall-cmd --permanent --add-port=5000/tcp
-#firewall-cmd --permanent --add-port=9191/tcp
-#firewall-cmd --permanent --add-port=9292/tcp
-#firewall-cmd --permanent --add-port=8776/tcp
-#firewall-cmd --permanent --add-port=9696/tcp
-#firewall-cmd --permanent --add-port=6080/tcp
-#firewall-cmd --permanent --add-port=8775/tcp
-#firewall-cmd --permanent --add-port=8774/tcp
-#firewall-cmd --permanent --add-port=8777/tcp
-#firewall-cmd --permanent --add-port=4331/tcp
-#firewall-cmd --permanent --add-port=35022/udp
-#firewall-cmd --reload
+	#firewall-cmd --add-port={3306/tcp,4567/tcp,4568/tcp,4444/tcp} --permanent 
+	#firewall-cmd --permanent --add-port=9300/tcp
+	#firewall-cmd --permanent --add-port=3306/tcp
+	#firewall-cmd --permanent --add-port=9200/tcp
+	#firewall-cmd --permanent --add-port=35357/tcp
+	#firewall-cmd --permanent --add-port=5000/tcp
+	#firewall-cmd --permanent --add-port=9191/tcp
+	#firewall-cmd --permanent --add-port=9292/tcp
+	#firewall-cmd --permanent --add-port=8776/tcp
+	#firewall-cmd --permanent --add-port=9696/tcp
+	#firewall-cmd --permanent --add-port=6080/tcp
+	#firewall-cmd --permanent --add-port=8775/tcp
+	#firewall-cmd --permanent --add-port=8774/tcp
+	#firewall-cmd --permanent --add-port=8777/tcp
+	#firewall-cmd --permanent --add-port=4331/tcp
+	#firewall-cmd --permanent --add-port=35022/udp
+	#firewall-cmd --reload
 
 
 
@@ -151,165 +154,168 @@ Jika firwall nya hidup, lebih baik stop service firewall nya
 
 install ha proxy:
 
-# yum install -y haproxy
-#echo 'net.ipv4.ip_nonlocal_bind=1' >> /etc/sysctl.d/haproxy.conf
-#sysctl -p /etc/sysctl.d/haproxy.conf
+	# yum install -y haproxy
+	#echo 'net.ipv4.ip_nonlocal_bind=1' >> /etc/sysctl.d/haproxy.conf
+	#sysctl -p /etc/sysctl.d/haproxy.conf
 
-# systemctl stop firewalld
-# systemctl disabl firewalld
+	# systemctl stop firewalld
+	# systemctl disabl firewalld
 
-disable selinux
+node ha proxy disable selinux configed
 
 
-# cat > /etc/sysctl.d/tcp_keepalive.conf << EOF
-> net.ipv4.tcp_keepalive_intvl = 1
-> net.ipv4.tcp_keepalive_probes = 5
-> net.ipv4.tcp_keepalive_time = 5
-EOF
-# sysctl -p /etc/sysctl.d/tcp_keepalive.conf
+	# cat > /etc/sysctl.d/tcp_keepalive.conf << EOF
+	> net.ipv4.tcp_keepalive_intvl = 1
+	> net.ipv4.tcp_keepalive_probes = 5
+	> net.ipv4.tcp_keepalive_time = 5
+	EOF
+	# sysctl -p /etc/sysctl.d/tcp_keepalive.conf
 
 configuration haproxy (/etc/haproxy/haproxy.cfg)
-# vim /etc/haproxy/haproxy.cfg
 
-~
-~
-global
-    # to have these messages end up in /var/log/haproxy.log you will
-    # need to:
-    #
-    # 1) configure syslog to accept network log events.  This is done
-    #    by adding the '-r' option to the SYSLOGD_OPTIONS in
-    #    /etc/sysconfig/syslog
-    #
-    # 2) configure local2 events to go to the /var/log/haproxy.log
-    #   file. A line like the following can be added to
-    #   /etc/sysconfig/syslog
-    #
-    #    local2.*                       /var/log/haproxy.log
-    #
-    log         127.0.0.1 local2
+vim /etc/haproxy/haproxy.cfg
 
-    chroot      /var/lib/haproxy
-    pidfile     /var/run/haproxy.pid
-    maxconn     4000
-    user        haproxy
-    group       haproxy
-    daemon
+	~
+	~
+	global
+    	# to have these messages end up in /var/log/haproxy.log you will
+    	# need to:
+    	#
+    	# 1) configure syslog to accept network log events.  This is done
+    	#    by adding the '-r' option to the SYSLOGD_OPTIONS in
+    	#    /etc/sysconfig/syslog
+    	#
+    	# 2) configure local2 events to go to the /var/log/haproxy.log
+    	#   file. A line like the following can be added to
+    	#   /etc/sysconfig/syslog
+   	#
+   	#    local2.*                       /var/log/haproxy.log
+   	#
+    	log         127.0.0.1 local2
 
-    # turn on stats unix socket
-    stats socket /var/lib/haproxy/stats
+    	chroot      /var/lib/haproxy
+   	pidfile     /var/run/haproxy.pid
+   	maxconn     4000
+    	user        haproxy
+    	group       haproxy
+    	daemon
 
-    # utilize system-wide crypto-policies
-    ssl-default-bind-ciphers PROFILE=SYSTEM
-    ssl-default-server-ciphers PROFILE=SYSTEM
+   	# turn on stats unix socket
+    	stats socket /var/lib/haproxy/stats
 
-#---------------------------------------------------------------------
-# common defaults that all the 'listen' and 'backend' sections will
-# use if not designated in their block
-#---------------------------------------------------------------------
-defaults
-    mode                    tcp
-    log                     global
-    option                  dontlognull
-    option http-server-close
-    option forwardfor       except 127.0.0.0/8
-    option                  redispatch
-    retries                 3
-    timeout http-request    10s
-    timeout queue           1m
-    timeout connect         10s
-    timeout client          1m
-    timeout server          1m
-    timeout http-keep-alive 10s
-    timeout check           10s
-    maxconn                 3000
+    	# utilize system-wide crypto-policies
+    	ssl-default-bind-ciphers PROFILE=SYSTEM
+    	ssl-default-server-ciphers PROFILE=SYSTEM
 
-listen monitor
-    bind 10.19.33.15:9300
-    mode http
-    monitor-uri /status
-    stats enable
-    stats uri /admin
-    stats realm Haproxy\ Statistics
-    stats auth admin:password
-    stats refresh 15s
+	#---------------------------------------------------------------------
+	# common defaults that all the 'listen' and 'backend' sections will
+	# use if not designated in their block
+	#---------------------------------------------------------------------
+	defaults
+   		mode                    tcp
+    		log                     global
+    		option                  dontlognull
+   		option http-server-close
+    		option forwardfor       except 127.0.0.0/8
+    		option                  redispatch
+    		retries                 3
+    		timeout http-request    10s
+    		timeout queue           1m
+   		timeout connect         10s
+    		timeout client          1m
+    		timeout server          1m
+   		timeout http-keep-alive 10s
+    		timeout check           10s
+   		 maxconn                 3000
 
-frontend hap-ip
-    bind 10.19.33.15:3306
-    timeout client 90m
-    default_backend db-vms-galera
+	listen monitor
+   		bind 10.19.33.15:9300
+    		mode http
+    		monitor-uri /status
+    		stats enable
+    		stats uri /admin
+    		stats realm Haproxy\ Statistics
+    		stats auth admin:password
+    		stats refresh 15s
 
-backend db-vms-galera
-    option httpchk
-    stick-table type ip size 1000
-    stick on dst
-    timeout server 90m
-    server controller1 10.19.33.11:3306 check inter 1s port 9200 backup on-marked-down shutdown-sessions
-    server controller2 10.19.33.12:3306 check inter 1s port 9200 backup on-marked-down shutdown-sessions
-    server controller3 10.19.33.13:3306 check inter 1s port 9200 backup on-marked-down shutdown-sessions
+	frontend hap-ip
+    		bind 10.19.33.15:3306
+    		timeout client 90m
+    		default_backend db-vms-galera
 
-listen rabbitmq_cluster 
-    mode tcp
-    bind 10.19.33.15:4369
-    bind 10.19.33.15:25672
-    bind 10.19.33.15:15672
-    balance roundrobin
-    #stick-table type ip size 1000
-    #stick on dst
-    #timeout server 90m
-    server controller1-port-4369 10.19.33.11:4369 check inter 5000 rise 2 fall 3
-    server controller2-port-4369 10.19.33.12:4369 check inter 5000 rise 2 fall 3
-    server controller3-port-4369 10.19.33.13:4369 check inter 5000 rise 2 fall 3
-    server controller1-port-25672 10.19.33.11:25672 check inter 5000 rise 2 fall 3
-    server controller2-port-25672 10.19.33.12:25672 check inter 5000 rise 2 fall 3
-    server controller3-port-25672 10.19.33.13:25672 check inter 5000 rise 2 fall 3
-    server controller1-port-15672 10.19.33.11:15672 check inter 5000 rise 2 fall 3
-    server controller2-port-15672 10.19.33.12:15672 check inter 5000 rise 2 fall 3
-    server controller3-port-15672 10.19.33.13:15672 check inter 5000 rise 2 fall 3
+	backend db-vms-galera
+    		option httpchk
+    		stick-table type ip size 1000
+    		stick on dst
+    		timeout server 90m
+    		server controller1 10.19.33.11:3306 check inter 1s port 9200 backup on-marked-down shutdown-sessions
+    		server controller2 10.19.33.12:3306 check inter 1s port 9200 backup on-marked-down shutdown-sessions
+   		server controller3 10.19.33.13:3306 check inter 1s port 9200 backup on-marked-down shutdown-sessions
+
+	listen rabbitmq_cluster 
+   		mode tcp
+    		bind 10.19.33.15:4369
+    		bind 10.19.33.15:25672
+    		bind 10.19.33.15:15672
+    		balance roundrobin
+    		#stick-table type ip size 1000
+    		#stick on dst
+   		#timeout server 90m
+    		server controller1-port-4369 10.19.33.11:4369 check inter 5000 rise 2 fall 3
+   		server controller2-port-4369 10.19.33.12:4369 check inter 5000 rise 2 fall 3
+    		server controller3-port-4369 10.19.33.13:4369 check inter 5000 rise 2 fall 3
+    		server controller1-port-25672 10.19.33.11:25672 check inter 5000 rise 2 fall 3
+    		server controller2-port-25672 10.19.33.12:25672 check inter 5000 rise 2 fall 3
+    		server controller3-port-25672 10.19.33.13:25672 check inter 5000 rise 2 fall 3
+   		server controller1-port-15672 10.19.33.11:15672 check inter 5000 rise 2 fall 3
+    		server controller2-port-15672 10.19.33.12:15672 check inter 5000 rise 2 fall 3
+    		server controller3-port-15672 10.19.33.13:15672 check inter 5000 rise 2 fall 3
 
 
-listen rabbitmq_cluster_openstack
-    mode tcp
-    bind 10.19.33.15:5672
-    balance roundrobin
-    #stick-table type ip size 1000
-    #stick on dst
-    #timeout server 90m
-    server controller1 10.19.33.11:5672 check inter 5000 rise 2 fall 3
-    server controller2 10.19.33.12:5672 check inter 5000 rise 2 fall 3
-    server controller3 10.19.33.13:5672 check inter 5000 rise 2 fall 3
+	listen rabbitmq_cluster_openstack
+    		mode tcp
+    		bind 10.19.33.15:5672
+    		balance roundrobin
+    		#stick-table type ip size 1000
+    		#stick on dst
+    		#timeout server 90m
+    		server controller1 10.19.33.11:5672 check inter 5000 rise 2 fall 3
+    		server controller2 10.19.33.12:5672 check inter 5000 rise 2 fall 3
+    		server controller3 10.19.33.13:5672 check inter 5000 rise 2 fall 3
 
-frontend http-in
-    # listen 80 port
-    bind 10.19.33.15:80
-    #bind 10.19.33.15:443
-    # set default backend
-    default_backend    backend_servers
-    # send X-Forwarded-For header
-    option             forwardfor
+	frontend http-in
+    		# listen 80 port
+   		bind 10.19.33.15:80
+    		#bind 10.19.33.15:443
+    		# set default backend
+    	default_backend    backend_servers
+    		# send X-Forwarded-For header
+		option             forwardfor
 
-# define backend
-backend backend_servers
-    # balance with roundrobin
-    balance            roundrobin
-    # define backend servers
-    server     	controller1-80 10.19.33.11:80 check
-    server	controller2-80 10.19.33.12:80 check
-    server	controller3-80 10.19.33.13:80 check
-    #server      controller1-443 10.19.33.11:443 check
-    #server      controller2-443 10.19.33.12:443 check
-    #server      controller3-443 10.19.33.13:443 check
+	# define backend
+	backend backend_servers
+    		# balance with roundrobin
+    		balance            roundrobin
+   		# define backend servers
+    		server  controller1-80 10.19.33.11:80 check
+    		server	controller2-80 10.19.33.12:80 check
+    		server	controller3-80 10.19.33.13:80 check
+    		#server controller1-443 10.19.33.11:443 check
+    		#server controller2-443 10.19.33.12:443 check
+    		#server controller3-443 10.19.33.13:443 check
 	
-~
-~
-:wq
+		~
+		~
+		:wq
 
 running service ha proxy
-# systemctl enable --now
+
+		# systemctl enable --now
 
 how to access haproxy admin via browser
 
 http://10.19.33.15:9300/admin
+
 user=admin
 password=password
 

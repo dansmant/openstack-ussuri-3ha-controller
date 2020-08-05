@@ -1,4 +1,4 @@
-# openstack-ussuri 3 node controller HA on CentOS 8 Versi 1.0
+# openstack-ussuri 3 node controller HA on CentOS 8 Vertion 1.0
 HA 3 node controller with 1 node compute and 1 node haproxy
 
 

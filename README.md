@@ -1,4 +1,4 @@
-# openstack-ussuri-3 node controller HA Versi 1.0
+# openstack-ussuri 3 node controller HA on CentOS 8 Versi 1.0
 HA 3 node controller with 1 node compute and 1 node haproxy
 
 
@@ -12,7 +12,35 @@ reference source;
 	https://www.sebastien-han.fr/blog/2012/05/21/openstack-high-availability-rabbitmq/ 
 
 
-deploy HA controller openstack train using 3 node controller
+deploy HA controller openstack Ussuri using 3 node controller, 1 node compute, 1 node haproxy;
+
+Lab running on KVM, you need nestad VM to configutration VM; https://docs.fedoraproject.org/en-US/quick-docs/using-nested-virtualization-in-kvm/
+
+and you need install virtualbmc for fencing clutser on KVM mechine;
+1. https://docs.openstack.org/project-deploy-guide/tripleo-docs/latest/environments/virtualbmc.html
+2. https://docs.openstack.org/virtualbmc/latest/user/index.html
+
+example vbmc on lab;
+
+	sentry-02 ~# vbmc list
+	+------------------------+---------+------------+------+
+	| Domain name            | Status  | Address    | Port |
+	+------------------------+---------+------------+------+
+	| Yudi-rhv               | running | 10.19.33.3 | 6012 |
+	| daniel-compute1-c8x    | running | 10.19.33.3 | 6004 |
+	| daniel-controller1-c8x | running | 10.19.33.3 | 6001 |
+	| daniel-controller2-c8x | running | 10.19.33.3 | 6002 |
+	| daniel-controller3-c8x | running | 10.19.33.3 | 6003 |
+	| mysql1-cluster         | running | 10.19.33.3 | 6010 |
+	| mysql2-cluster         | running | 10.19.33.3 | 6011 |
+	| yudi-rhv2              | running | 10.19.33.3 | 6013 |
+	+------------------------+---------+------------+------+
+	sentry-02 ~#  ipmitool -H 10.19.33.3 -p 6001 -U admin -P password -I lanplus power status
+	Chassis Power is on
+
+-----
+Topology deployment opentsack 3 node ha
+
 
         
             		          		 VIP 10.19.33.14
@@ -326,200 +354,242 @@ password=password
 install mariadb galera;
 
 
-# yum install mariadb-galera-server xinetd rsync
+	# yum install mariadb-galera-server xinetd rsync
 
 configure firewall if firewall of on;
 
-# firewall-cmd --add-service=mysql --permanent 
-# firewall-cmd --add-port={3306/tcp,4567/tcp,4568/tcp,4444/tcp} --permanent
-# firewall-cmd --reload 
+	# firewall-cmd --add-service=mysql --permanent 
+	# firewall-cmd --add-port={3306/tcp,4567/tcp,4568/tcp,4444/tcp} --permanent
+	# firewall-cmd --reload 
 
 
 all node controller node
-# vim /etc/sysconfig/clustercheck
 
-MYSQL_USERNAME="clustercheck"
-MYSQL_PASSWORD="password"
-MYSQL_HOST="localhost"
-MYSQL_PORT="3306"
+	# vim /etc/sysconfig/clustercheck
+----
+	
+	MYSQL_USERNAME="clustercheck"
+	MYSQL_PASSWORD="password"
+	MYSQL_HOST="localhost"
+	MYSQL_PORT="3306"
+	~
+	:wq
+-----
 
-# systemctl start mariadb
-# mysql -e "CREATE USER 'clustercheck'@'localhost' IDENTIFIED BY 'password';"
-# systemctl stop mariadb
+	# systemctl start mariadb
+	# mysql -e "CREATE USER 'clustercheck'@'localhost' IDENTIFIED BY 'password';"
+	# systemctl stop mariadb
+----
 
-# cp /etc/my.cnf.d/galera.cnf /root/backup-config
-# mv /etc/my.cnf /root/backup-config
-# vim /etc/my.cnf.d/galera.cnf
+	# mkdir /root/backup-config
+	# cp /etc/my.cnf.d/galera.cnf /root/backup-config
+	# mv /etc/my.cnf /root/backup-config
+----	
 
-[mysqld]
-skip-name-resolve=1
-innodb_locks_unsafe_for_binlog=1
-max_connections=8192
-query_cache_size=0
-query_cache_type=0
-binlog_format=ROW
-default-storage-engine=innodb
-innodb_autoinc_lock_mode=2
-bind-address=0.0.0.0
-wsrep_on=1
-wsrep_provider=/usr/lib64/galera/libgalera_smm.so
-wsrep_cluster_name="galera_cluster"
-wsrep_cluster_address="gcomm://controller1,controller2,controller3"
-wsrep_slave_threads=1
-wsrep_certify_nonPK=1
-wsrep_max_ws_rows=131072
-wsrep_max_ws_size=1073741824
-wsrep_debug=0
-wsrep_convert_LOCK_to_trx=0
-wsrep_retry_autocommit=1
-wsrep_auto_increment_control=1
-wsrep_drupal_282555_workaround=0
-wsrep_causal_reads=0
-wsrep_notify_cmd=
-wsrep_sst_method=rsync
-wsrep_sst_auth=root:
+	# vim /etc/my.cnf.d/galera.cnf
+
+----
+
+	[mysqld]
+	skip-name-resolve=1
+	innodb_locks_unsafe_for_binlog=1
+	max_connections=8192
+	query_cache_size=0
+	query_cache_type=0
+	binlog_format=ROW
+	default-storage-engine=innodb
+	innodb_autoinc_lock_mode=2
+	bind-address=0.0.0.0
+	wsrep_on=1
+	wsrep_provider=/usr/lib64/galera/libgalera_smm.so
+	wsrep_cluster_name="galera_cluster"
+	wsrep_cluster_address="gcomm://controller1,controller2,controller3"
+	wsrep_slave_threads=1
+	wsrep_certify_nonPK=1
+	wsrep_max_ws_rows=131072
+	wsrep_max_ws_size=1073741824
+	wsrep_debug=0
+	wsrep_convert_LOCK_to_trx=0
+	wsrep_retry_autocommit=1
+	wsrep_auto_increment_control=1
+	wsrep_drupal_282555_workaround=0
+	wsrep_causal_reads=0
+	wsrep_notify_cmd=
+	wsrep_sst_method=rsync
+	wsrep_sst_auth=root:
 
 for node controller1
-# galera_new_cluster
-# systemctl enable mariadb
+
+	# galera_new_cluster
+	# systemctl enable mariadb
 
 for node controller2 and controller3
-# systemctl enable --now mariadb
 
-# mysql_secure_installation
+	# systemctl enable --now mariadb
 
-# mysql -u root -p
+	# mysql_secure_installation
 
-# CREATE USER 'clustercheck'@'localhost' IDENTIFIED BY 'password';
+	# mysql -u root -p
+
+	# CREATE USER 'clustercheck'@'localhost' IDENTIFIED BY 'password';
 
 if service mariadb galera can no running, do it delete file "grastate.dat" at path /var/lib/mysql then run sevice mariadb galera
-# rm /var/lib/mysql/grastate.dat
-# galera_new_cluster
+
+	# rm /var/lib/mysql/grastate.dat
+	# galera_new_cluster
 
 controller2 dan controller3
-# systemctl start mariadb
 
-# vim /etc/xinetd.d/galera-monitor
-service galera-monitor
-{
-    port = 9200
-    disable = no
-    socket_type = stream
-    protocol = tcp
-    wait = no
-    user = root
-    group = root
-    groups = yes
-    server = /usr/bin/clustercheck
-    type = UNLISTED
-    per_source = UNLIMITED
-    log_on_success = 
-    log_on_failure = HOST
-    flags = REUSE
-}
+	# systemctl restart mariadb
 
-# systemctl start xinetd
-# systemctl enable xinetd
+----
 
-# mysql -u root -p
-# check garela running
-# show status like 'wsrep_%'; 
+	# vim /etc/xinetd.d/galera-monitor
 
-# GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' IDENTIFIED by 'password' WITH GRANT OPTION;
+	service galera-monitor
+	{
+    		port = 9200
+    		disable = no
+   		socket_type = stream
+   		protocol = tcp
+    		wait = no
+    		user = root
+    		group = root
+    		groups = yes
+    		server = /usr/bin/clustercheck
+   		type = UNLISTED
+    		per_source = UNLIMITED
+    		log_on_success = 
+    		log_on_failure = HOST
+    		flags = REUSE
+	
+	}
+
+----
+
+	# systemctl start xinetd
+	# systemctl enable xinetd
+
+----
+
+	# mysql -u root -p
+	# check garela running
+	# show status like 'wsrep_%'; 
+
+	# GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' IDENTIFIED by 'password' WITH GRANT OPTION;
 
 
 ===============================================================================================================================================================
 
 INSTALL RABBITMQ cluster:
 
-# yum -y install rabbitmq-server
+	# yum -y install rabbitmq-server
 
-JIka firewall hidup
-# firewall-cmd --add-port={4369/tcp,25672/tcp} --permanent 
-# firewall-cmd --add-port=15672/tcp --permanent 
-# irewall-cmd --permanent --add-port=5672/tcp
-# firewall-cmd --reload
+if firewalld on
+
+	# firewall-cmd --add-port={4369/tcp,25672/tcp} --permanent 
+	# firewall-cmd --add-port=15672/tcp --permanent 
+	# irewall-cmd --permanent --add-port=5672/tcp
+	# firewall-cmd --reload
 
 only on controller1 first; the start stop service rabbitmq;
-# systemctl start rabbitmq-server
-# systemctl stop rabbitmq-server
+
+	# systemctl start rabbitmq-server
+	# systemctl stop rabbitmq-server
 
 All controller node;
-#vim /etc/rabbitmq/rabbitmq-env.conf
 
-NODE_IP_ADDRESS=$(ip addr | grep 'enp1s0:' -A2 | tail -n1 | awk '{print $2}' | awk -F '/' '{print $1}')
+	#vim /etc/rabbitmq/rabbitmq-env.conf
 
-:wq
+		NODE_IP_ADDRESS=$(ip addr | grep 'enp1s0:' -A2 | tail -n1 | awk '{print $2}' | awk -F '/' '{print $1}')
+		~
+		~
+		:wq
+		
+------		
 
+	# scp /var/lib/rabbitmq/.erlang.cookie root@controller2:/var/lib/rabbitmq/
+	# scp /var/lib/rabbitmq/.erlang.cookie root@controller3:/var/lib/rabbitmq/
 
-# scp /var/lib/rabbitmq/.erlang.cookie root@controller2:/var/lib/rabbitmq/
-# scp /var/lib/rabbitmq/.erlang.cookie root@controller3:/var/lib/rabbitmq/
-
-# scp /etc/rabbitmq/rabbitmq-env.conf root@controller2:/etc/rabbitmq/
-# scp /etc/rabbitmq/rabbitmq-env.conf root@controller3:/etc/rabbitmq/
+	# scp /etc/rabbitmq/rabbitmq-env.conf root@controller2:/etc/rabbitmq/
+	# scp /etc/rabbitmq/rabbitmq-env.conf root@controller3:/etc/rabbitmq/
 
 
 di rubah owner rabbitmq  controller2 dan controller3 /var/lib/rabbitmq/.erlang.cookie:
-# chown rabbitmq:rabbitmq /var/lib/rabbitmq/.erlang.cookie (di setiap node)
 
+	# chown rabbitmq:rabbitmq /var/lib/rabbitmq/.erlang.cookie (di setiap node)
 
-# pcs resource create rabbitmq-server systemd:rabbitmq-server op monitor start-delay=20s clone
-# pcs status
+----
+
+	# pcs resource create rabbitmq-server systemd:rabbitmq-server op monitor start-delay=20s clone
+	# pcs status
 
 (khusus node controller2 & controller3)
-# rabbitmqctl stop_app
-# rabbitmqctl join_cluster rabbit@controller1
-# rabbitmqctl start_app
+
+	# rabbitmqctl stop_app
+	# rabbitmqctl join_cluster rabbit@controller1
+	# rabbitmqctl start_app
 
 
 monitor rabbitmq via http:
 all node
-# rabbitmq-plugins enable rabbitmq_management
+
+	# rabbitmq-plugins enable rabbitmq_management
 
 download rabbit admin di http:/controller1:15672/cli/index.html
-# cp rabbitmqadmin /usr/local/bin/
-# chmod +x /usr/local/bin/rabbitmqadmin
-# rabbitmqctl list_users 
+
+	# cp rabbitmqadmin /usr/local/bin/
+	# chmod +x /usr/local/bin/rabbitmqadmin
+	# rabbitmqctl list_users 
 
 install phyton36:
-# dnf module -y install python36
-# python3 -V 
-# echo -e "import sys\nprint(sys.version)" > python3_test.py 
-# python3 python3_test.py
-# alternatives --config python (pilih 2 phyton 3)
-# python -V 
 
-khusus di node controller1:
-# rabbitmqadmin declare queue name=shared_queue 
-# rabbitmqctl set_policy ha-policy "shared_queue" '{"ha-mode":"all"}'
-# rabbitmqadmin list queues name node policy slave_nodes state synchronised_slave_nodes 
-# rabbitmqctl add_user user-rabbit password 
-# rabbitmqctl list_users 
-# rabbitmqctl set_user_tags user-rabbit administrator 
+	# dnf module -y install python36
+	# python3 -V 
+	# echo -e "import sys\nprint(sys.version)" > python3_test.py 
+	# python3 python3_test.py
+	# alternatives --config python (pilih 2 phyton 3)
+	# python -V 
+
+only node controller1:
+
+	# rabbitmqadmin declare queue name=shared_queue 
+	# rabbitmqctl set_policy ha-policy "shared_queue" '{"ha-mode":"all"}'
+	# rabbitmqadmin list queues name node policy slave_nodes state synchronised_slave_nodes 
+	# rabbitmqctl add_user user-rabbit password 
+	# rabbitmqctl list_users 
+	# rabbitmqctl set_user_tags user-rabbit administrator 
 
 
-# rabbitmqctl add_user openstack password   
-# rabbitmqctl set_permissions openstack ".*" ".*" ".*" 
+	# rabbitmqctl add_user openstack password   
+	# rabbitmqctl set_permissions openstack ".*" ".*" ".*" 
+
 
 link browser rabbitmq http://10.19.33.15:15672/
-login dengan credential
+login with credential
 user = user-rabbit
 password = password
 
 =================================================================================================================================================================
-enable service pacemaker memcache
+
+Install and enable service pacemaker memcache
 
 All node config memcache:
-# yum install memcached
 
-# vi /etc/sysconfig/memcached  (listen all)
+	# yum install memcached
 
-OPTIONS="-l 0.0.0.0,::"
+	# vi /etc/sysconfig/memcached  (listen all)
 
-# firewall-cmd --add-service=memcache --permanent
-# firewall-cmd --reload
+		OPTIONS="-l 0.0.0.0,::"
 
-# pcs resource create memcached systemd:memcached clone interleave=true
+if firewalld on
+
+	# firewall-cmd --add-service=memcache --permanent
+	# firewall-cmd --reload
+
+-----
+
+	# pcs resource create memcached systemd:memcached clone interleave=true
 
 
 
@@ -528,122 +598,135 @@ configuration keystone on controller1, contoller2 & controller3
 
 login mysql
 
-# mysql -u 10.19.33.15 -u root -p
-# create database keystone;
-# grant all privileges on keystone.* to keystone@'localhost' identified by 'password';
-# grant all privileges on keystone.* to keystone@'%' identified by 'password';
-# flush privileges; 
-# exit
+	# mysql -u 10.19.33.15 -u root -p
+	# create database keystone;
+	# grant all privileges on keystone.* to keystone@'localhost' identified by 'password';
+	# grant all privileges on keystone.* to keystone@'%' identified by 'password';
+	#flush privileges; 
+	# exit
 
 install packet keystone on all node
 
-# yum install epel-release
-# dnf --enablerepo=centos-openstack-ussuri,epel,PowerTools -y install openstack-keystone python3-openstackclient httpd mod_ssl python3-mod_wsgi python3-oauth2client
+	# yum install epel-release
+	# dnf --enablerepo=centos-openstack-ussuri,epel,PowerTools -y install openstack-keystone python3-openstackclient httpd mod_ssl python3-mod_wsgi python3-oauth2client
 
 
 generate a keystone service token
-# openssl rand -hex 10 > ~/keystone_service_token
-# scp ~/keystone_service_token controller2:~/
-# scp ~/keystone_service_token controller3:~/
 
-Jika firewall hidup;
-# firewall-cmd --add-port=5000/tcp --permanent 
-# firewall-cmd --add-port=35357/tcp --permanent
-# firewall-cmd --add-servic=http --permanent
-# firewall-cmd --add-service=https --permanent
-# firewall-cmd --reload
+	# openssl rand -hex 10 > ~/keystone_service_token
+	# scp ~/keystone_service_token controller2:~/
+	# scp ~/keystone_service_token controller3:~/
+
+if  firewalld on;
+
+	# firewall-cmd --add-port=5000/tcp --permanent 
+	# firewall-cmd --add-port=35357/tcp --permanent
+	# firewall-cmd --add-servic=http --permanent
+	# firewall-cmd --add-service=https --permanent
+	# firewall-cmd --reload
 
 config /etc/keystone/keystone.conf
-# line 14
-admin_token = /root/keystone_service_token
+line 14:
 
-#line 24
+	admin_token = /root/keystone_service_token
 
-#line 267
-transport_url = rabbit://openstack:password@10.19.33.15
+line 267
 
-# line 429
-memcache_servers = "10.19.33.11:11211,10.19.33.12:11211,10.19.33.13"
+	transport_url = rabbit://openstack:password@10.19.33.15
 
-# line 573
-connection = mysql+pymysql://keystone:password@10.19.33.15/keystone
+line 429
+	
+	memcache_servers = "10.19.33.11:11211,10.19.33.12:11211,10.19.33.13"
 
-# line 2446
-provider = fernet
+line 573
 
-# line 1834
-rabbit_ha_queues = true
+	connection = mysql+pymysql://keystone:password@10.19.33.15/keystone
 
-:wq
+line 2446
+
+	provider = fernet
+
+line 1834
+
+	rabbit_ha_queues = true
+	~
+	:wq
 
 controller1:
-# scp /etc/keystone/keystone.conf root@10.19.33.12:/etc/keystone/
-# scp /etc/keystone/keystone.conf root@10.19.33.13:/etc/keystone/
+
+	# scp /etc/keystone/keystone.conf root@10.19.33.12:/etc/keystone/
+	# scp /etc/keystone/keystone.conf root@10.19.33.13:/etc/keystone/
 
 generate keystone KPI and sync the database:
 
-# keystone-manage fernet_setup --keystone-user keystone --keystone-group keystone 
-# keystone-manage credential_setup --keystone-user keystone --keystone-group keystone
+	# keystone-manage fernet_setup --keystone-user keystone --keystone-group keystone 
+	# keystone-manage credential_setup --keystone-user keystone --keystone-group keystone
 
-# scp -r /etc/keystone/credential-keys root@10.19.33.12:/etc/keystone/
-# scp -r /etc/keystone/credential-keys root@10.19.33.13:/etc/keystone/
-# scp -r /etc/keystone/fernet-keys root@10.19.33.13:/etc/keystone/
-# scp -r /etc/keystone/fernet-keys root@10.19.33.12:/etc/keystone/
+	# scp -r /etc/keystone/credential-keys root@10.19.33.12:/etc/keystone/
+	# scp -r /etc/keystone/credential-keys root@10.19.33.13:/etc/keystone/
+	# scp -r /etc/keystone/fernet-keys root@10.19.33.13:/etc/keystone/
+	# scp -r /etc/keystone/fernet-keys root@10.19.33.12:/etc/keystone/
 
 controller2 & controller3:
-# chown -R keystone:keystone /etc/keystone/credential-keys
-# chown -R keystone:keystone /etc/keystone/fernet-keys
-# restorecon -Rv /etc/keystone/credential-keys
-# restorecon -Rv /etc/keystone/
+
+	# chown -R keystone:keystone /etc/keystone/credential-keys
+	# chown -R keystone:keystone /etc/keystone/fernet-keys
+	# restorecon -Rv /etc/keystone/credential-keys
+	# restorecon -Rv /etc/keystone/
 
 controller1:
-# su -s /bin/bash keystone -c "keystone-manage db_sync"
+
+	# su -s /bin/bash keystone -c "keystone-manage db_sync"
 
 config bootstrap keystone:
 
-# keystone-manage bootstrap --bootstrap-password adminpassword \
---bootstrap-admin-url http://10.19.33.14:5000/v3/ \
---bootstrap-internal-url http://10.19.33.14:5000/v3/ \
---bootstrap-public-url http://10.19.33.14:5000/v3/ \
---bootstrap-region-id RegionOne  
+	# keystone-manage bootstrap --bootstrap-password adminpassword \
+	  --bootstrap-admin-url http://10.19.33.14:5000/v3/ \
+	  --bootstrap-internal-url http://10.19.33.14:5000/v3/ \
+	  --bootstrap-public-url http://10.19.33.14:5000/v3/ \
+	  --bootstrap-region-id RegionOne  
 
 Selinux Enable all node:setsebool -P httpd_use_openstack on
 
-# setsebool -P httpd_use_openstack on
-# setsebool -P httpd_can_network_connect on
-# setsebool -P httpd_can_network_connect_db on
+	# setsebool -P httpd_use_openstack on
+	# setsebool -P httpd_can_network_connect on
+	# setsebool -P httpd_can_network_connect_db on
 
 
-# ln -s /usr/share/keystone/wsgi-keystone.conf /etc/httpd/conf.d/ 
+	# ln -s /usr/share/keystone/wsgi-keystone.conf /etc/httpd/conf.d/ 
 
 
 running service controller1, controller2 dan controller3
-# systemctl enable --noe httpd
+
+	# systemctl enable --noe httpd
 
 
 Create keystone credential file:
-#vi ~/keystonerc
 
-export OS_PROJECT_DOMAIN_NAME=default
-export OS_USER_DOMAIN_NAME=default
-export OS_PROJECT_NAME=admin
-export OS_USERNAME=admin
-export OS_PASSWORD=adminpassword
-export OS_AUTH_URL=http://10.19.33.14:5000/v3
-export OS_IDENTITY_API_VERSION=3
-export OS_IMAGE_API_VERSION=2
-export PS1='[\u@\h \W(keystone)]\$ '
-export OS_VOLUME_API_VERSION=3
-~
-~
+	#vi ~/keystonerc
 
-:wq
+	export OS_PROJECT_DOMAIN_NAME=default
+	export OS_USER_DOMAIN_NAME=default
+	export OS_PROJECT_NAME=admin
+	export OS_USERNAME=admin
+	export OS_PASSWORD=adminpassword
+	export OS_AUTH_URL=http://10.19.33.14:5000/v3
+	export OS_IDENTITY_API_VERSION=3
+	export OS_IMAGE_API_VERSION=2
+	export PS1='[\u@\h \W(keystone)]\$ '
+	export OS_VOLUME_API_VERSION=3
+	~
+	~
 
-# chmod 600 ~/keystonerc
+	:wq
 
 
-# openstack project create --domain default --description "Service Project" service 
-# openstack project list 
+	# chmod 600 ~/keystonerc
+
+----
+
+	# openstack project create --domain default --description "Service Project" service 
+	# openstack project list 
 
 =================================================================================================================================================================
 
@@ -651,103 +734,112 @@ Glance instaltation
 
 All node controller
 
-# dnf --enablerepo=centos-openstack-ussuri,PowerTools,epel -y install openstack-glance 
+	# dnf --enablerepo=centos-openstack-ussuri,PowerTools,epel -y install openstack-glance 
 
-Jika firewall hidup;
-# firewall-cmd --add-port=9292/tcp --permanent
-# firewall-cmd --reload 
+if firewall on;
 
-# setsebool -P glance_api_can_network on 
+	# firewall-cmd --add-port=9292/tcp --permanent
+	# firewall-cmd --reload 
+
+	# setsebool -P glance_api_can_network on 
 
 
 controller1:
 
 create [glance] user in [service] project;
-# source ~/keystonerc
-# openstack user create --domain default --project service --password servicepassword glance
+
+	# source ~/keystonerc
+	# openstack user create --domain default --project service --password servicepassword glance
 
 add [glance] user in [admin] role;
-# openstack role add --project service --user glance admin
+	
+	# openstack role add --project service --user glance admin
 
 create service entry for [glance];
-# openstack service create --name glance --description "OpenStack Image service" image
+
+	# openstack service create --name glance --description "OpenStack Image service" image
 
 create endpoint for [glance] (public);
-# openstack endpoint create --region RegionOne image public http://10.19.33.14:9292 
+
+	# openstack endpoint create --region RegionOne image public http://10.19.33.14:9292 
 
 create endpoint for [glance] (internal);
-# openstack endpoint create --region RegionOne image internal http://10.19.33.14:9292
+
+	# openstack endpoint create --region RegionOne image internal http://10.19.33.14:9292
 
 create endpoint for [glance] (admin);
-# openstack endpoint create --region RegionOne image admin http://10.19.33.14:9292
+
+	# openstack endpoint create --region RegionOne image admin http://10.19.33.14:9292
 
 create database Glance;
-#  mysql -u root -p 
 
-MariaDB [(none)]> create database glance;
-MariaDB [(none)]> grant all privileges on glance.* to glance@'localhost' identified by 'password'; 
-MariaDB [(none)]> grant all privileges on glance.* to glance@'%' identified by 'password'; 
-MariaDB [(none)]> flush privileges;
-MariaDB [(none)]> exit
+	#  mysql -u root -p 
+
+	MariaDB [(none)]> create database glance;
+	MariaDB [(none)]> grant all privileges on glance.* to glance@'localhost' identified by 'password'; 
+	MariaDB [(none)]> grant all privileges on glance.* to glance@'%' identified by 'password'; 
+	MariaDB [(none)]> flush privileges;
+	MariaDB [(none)]> exit
 
 using nfs backend 
 
-on all node mountinfg to nfs filesystem
-# mkdir -p /backend/glance
-# vim /etc/fstab
-...
-...
+	on all node mountinfg to nfs filesystem
+	# mkdir -p /backend/glance
+	# vim /etc/fstab
+	...
+	...
 
-  10.19.33.22:/backend/glance	/backend/glance	nfs	_netdev,defaults	0 0
+  	10.19.33.22:/backend/glance	/backend/glance	nfs	_netdev,defaults	0 0
+	~
+	:wq
+---
+	# mount -av
 
-:wq
+	# vim /etc/glance/glance-api.conf
 
-# mount -av
+	[DEFAULT]
+	bind_host = 0.0.0.0
+	transport_url = rabbit://openstack:password@10.19.33.15
 
-# vim /etc/glance/glance-api.conf
+	[glance_store]
+	stores = file,http
+	default_store = file
+	filesystem_store_datadir = /backend/glance
 
-[DEFAULT]
-bind_host = 0.0.0.0
-transport_url = rabbit://openstack:password@10.19.33.15
+	[database]
+	connection = mysql+pymysql://glance:password@10.19.33.15/glance
 
-[glance_store]
-stores = file,http
-default_store = file
-filesystem_store_datadir = /backend/glance
-
-[database]
-connection = mysql+pymysql://glance:password@10.19.33.15/glance
-
-[keystone_authtoken]
-www_authenticate_uri = http://10.19.33.14:5000
-auth_url = http://10.19.33.14:5000
-memcached_servers = "10.19.33.11:11211,10.19.33.12:11211,10.19.33.13:11211"
-auth_type = password
-project_domain_name = default
-user_domain_name = default
-project_name = service
-username = glance
-password = servicepassword
-
-
-[oslo_messaging_rabbit]
-rabbit_ha_queues = true
-rabbit_hosts = 10.19.33.11,10.19.33.12,10.19.33.13
-
-[paste_deploy]	
-flavor = keystone
-
-~
-:wq
+	[keystone_authtoken]
+	www_authenticate_uri = http://10.19.33.14:5000
+	auth_url = http://10.19.33.14:5000
+	memcached_servers = "10.19.33.11:11211,10.19.33.12:11211,10.19.33.13:11211"
+	auth_type = password
+	project_domain_name = default
+	user_domain_name = default
+	project_name = service
+	username = glance
+	password = servicepassword
 
 
-# scp glance-api.conf root@10.19.33.12:/etc/glance/glance-api.conf
-# scp glance-api.conf root@10.19.33.13:/etc/glance/glance-api.conf
+	[oslo_messaging_rabbit]
+	rabbit_ha_queues = true
+	rabbit_hosts = 10.19.33.11,10.19.33.12,10.19.33.13
+
+	[paste_deploy]	
+	flavor = keystone
+
+	~
+	:wq
+
+----
+
+	# scp glance-api.conf root@10.19.33.12:/etc/glance/glance-api.conf
+	# scp glance-api.conf root@10.19.33.13:/etc/glance/glance-api.conf
 
 
-# su -s /bin/bash glance -c "glance-manage db_sync" 
+	# su -s /bin/bash glance -c "glance-manage db_sync" 
 
-# pcs resource create openstack-glance-api systemd:openstack-glance-api clone interleave=true
+	# pcs resource create openstack-glance-api systemd:openstack-glance-api clone interleave=true
 
 
 =================================================================================================================================================================

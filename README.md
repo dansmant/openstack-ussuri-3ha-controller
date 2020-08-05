@@ -1789,7 +1789,7 @@ config openstack dashboard
     	"compute": 2,
 	}
 	~
-	!
+	
 	:wq
 -----
 

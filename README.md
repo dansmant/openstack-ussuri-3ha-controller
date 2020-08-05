@@ -15,23 +15,23 @@ https://www.sebastien-han.fr/blog/2012/05/21/openstack-high-availability-rabbitm
 deploy HA controller openstack train using 3 node controller
 
         
-            _________________________VIP 10.19.33.14______________________
-           |                               |                              |
-           |                               |                              |
- --------------------           ----------------------      ---------------------          ----------------------        ------------------------
-|    controller1	   |			    |   controller2 	   |			|	controller3        |         |  compute-node      |        |      haproxy         |
-|enp1s0: 10.19.33.11 |	        |enp1s0: 10.19.33.12 |			|enp1s0: 10.19.33.13 |         |enp1s0: 10.19.33.13 |        | enp1s0: 10.19.33.15  |
-|enp2s0: ovs         |          |enp2s0: ovs         |      |enp2s0: ovs         |         |enp2s0: ovs         |        |                      |
-----------------------          ----------------------      ----------------------         ----------------------        ------------------------   
-           |                               |                              | 
-           |_______________________________|______________________________|
-                                           |
-                                           |
-                             -------------------------
-                             |    Storage-NFS-NODE   |
-                             | enp1s0: 10.19.33.22   |
-                             |                       |
-                             -------------------------
+            		          		VIP 10.19.33.14
+                                        		|
+           				 		|
+                  		______________                  ____________
+    		controller1                       controller2      	       controller3                  compute-node                   haproxy         
+  		enp1s0: 10.19.33.11 	        enp1s0: 10.19.33.12 	    enp1s0: 10.19.33.13          enp1s0: 10.19.33.13          enp1s0: 10.19.33.15  
+  		enp2s0: ovs                      enp2s0: ovs                enp2s0: ovs                  enp2s0: ovs                                       
+
+           		|                               |                              | 
+           		|_______________________________|______________________________|
+                        		                |
+                                        		|
+                             	            -------------------------
+                             	            |    Storage-NFS-NODE   |
+                             	            | enp1s0: 10.19.33.22   |
+                            	            |                       |
+                             		    -------------------------
 
 Service required at each node mentioned above;
 
@@ -58,30 +58,33 @@ how to config;
 
 ! config disk for mount point nfs
 
-## yum install nfs-utils
-# vim /etc/exports
+	# yum install nfs-utils
+	# vim /etc/exports
 
-/backend/glance         *(sync,rw,no_root_squash)
-/backend/cinder         *(sync,rw,no_root_squash)
-/backend/cinder-backup  *(sync,rw,no_root_squash)
-~                                               
-:wq 
+	/backend/glance         *(sync,rw,no_root_squash)
+	/backend/cinder         *(sync,rw,no_root_squash)
+	/backend/cinder-backup  *(sync,rw,no_root_squash)
+	~                                               
+	:wq 
 
-# systemctl enable --node nfs-server
-# exportfs -vr
+
+	# systemctl enable --node nfs-server
+	# exportfs -vr
 
 HA proxy node;
 Only haproxy service
-
-
+~
 Additional config: Selinux configed permissive and disable firewalld
 
 
 Requirment config ntp chrony each node (config ntp ke sumua node);
-# yum install chrony
-# vim /etc/chrony.conf
-server 10.19.31.3 iburst
-:wq
+	
+	# yum install chrony
+	# vim /etc/chrony.conf
+	server 10.19.31.3 iburst
+	:wq
+	~
+	~
 ---
 
 # systemctl restart chronyd

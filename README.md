@@ -58,7 +58,7 @@ how to config;
 
 ! config disk for mount point nfs
 
-# yum install nfs-utils
+## yum install nfs-utils
 # vim /etc/exports
 
 /backend/glance         *(sync,rw,no_root_squash)

@@ -43,9 +43,9 @@ example vbmc on lab;
 Topology deployment opentsack 3 node ha
 
 
-					VIP 10.19.33.14
-						|
-						|
+						VIP 10.19.33.14
+							|
+							|
 		----------------------	---------------------	----------------------	---------------------	-----------------------
 		|controller1         |	|    controller2     |	| controller3        |	|compute-node        |	| haproxy             |
 		|enp1s0: 10.19.33.11 |	| enp1s0: 10.19.33.12|	| enp1s0: 10.19.33.13|	|enp1s0: 10.19.33.13 |	| enp1s0: 10.19.33.15 | 

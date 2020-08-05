@@ -96,7 +96,7 @@ how to config;
 	:wq 
 
 
-	# systemctl enable --node nfs-server
+	# systemctl enable --now nfs-server
 	# exportfs -vr
 
 HA proxy node;
